@@ -1,0 +1,10 @@
+language: python
+python:
+  - "2.7"
+install:
+  - provision/run.sh
+  - pip install coveralls
+script:
+  - coverage run run_tests.py
+after_success:
+  - coveralls
