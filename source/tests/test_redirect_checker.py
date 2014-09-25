@@ -2,4 +2,5 @@ import unittest
 
 
 class RedirectCheckerTestCase(unittest.TestCase):
-    pass
+    def test_do_nothing(self):
+        pass
