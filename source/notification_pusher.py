@@ -45,8 +45,8 @@ def notification_worker(task, task_queue, *args, **kwargs):
     """
     try:
         current_thread().name = "pusher.worker#{task_id}".format(task_id=task.task_id)
-
         data = task.data.copy()
+
 
         url = data.pop('callback_url')
         data['id'] = task.task_id
@@ -73,7 +73,7 @@ def done_with_processed_tasks(task_queue):
 
     :param task_queue: очередь, хранящая кортежи (объект задачи, имя действия)
     """
-    logger.debug('Send info about finished tasks to queue.')
+    logger.debug('Send info about finished tasks to queue. Finished = ' + str(task_queue.qsize()))
 
     for _ in xrange(task_queue.qsize()):
         try:
@@ -89,6 +89,7 @@ def done_with_processed_tasks(task_queue):
             except tarantool.DatabaseError as exc:
                 logger.exception(exc)
         except gevent_queue.Empty:
+            logger.debug("empty queue")
             break
 
 
