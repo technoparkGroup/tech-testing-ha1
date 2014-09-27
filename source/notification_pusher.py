@@ -247,7 +247,7 @@ class Config(object):
     """
     pass
 
-
+#Протестировано
 def load_config_from_pyfile(filepath):
     """
     Создает Config объект из py файла и загружает в него настройки.
@@ -297,8 +297,9 @@ def main(argv):
     :param argv: агрументы командной строки.
     :type argv: list
     """
+    print(argv)
     args = parse_cmd_args(argv[1:])
-
+    print(args)
     if args.daemon:
         daemonize()
 
