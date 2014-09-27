@@ -1,7 +1,5 @@
 *.py[cod]
 .coverage
-
 .vagrant/
 htmlcov/
-
 .idea/

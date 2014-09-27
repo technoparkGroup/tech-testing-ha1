@@ -19,6 +19,7 @@ from gevent.pool import Pool
 import requests
 import tarantool
 import tarantool_queue
+from source.lib.utils import parse_cmd_args, daemonize, create_pidfile, load_config_from_pyfile
 
 SIGNAL_EXIT_CODE_OFFSET = 128
 """Коды выхода рассчитываются как 128 + номер сигнала"""
@@ -29,7 +30,15 @@ run_application = True
 exit_code = 0
 """Код возврата приложения"""
 
+is_testing = False
+
 logger = logging.getLogger('pusher')
+
+def getQueue(config):
+    return tarantool_queue.Queue(host=config.QUEUE_HOST, port=config.QUEUE_PORT, space=config.QUEUE_SPACE)
+
+def getTube(queue, config):
+    return queue.tube(config.QUEUE_TUBE)
 
 
 def notification_worker(task, task_queue, *args, **kwargs):
@@ -152,7 +161,6 @@ def main_loop(config):
 
     while run_application:
         free_workers_count = worker_pool.free_count()
-
         logger.debug('Pool has {count} free workers.'.format(count=free_workers_count))
 
         for number in xrange(free_workers_count):
@@ -175,101 +183,12 @@ def main_loop(config):
                 worker_pool.add(worker)
                 worker.start()
 
+        if is_testing:
+            break
+
         done_with_processed_tasks(processed_task_queue)
-
         sleep(config.SLEEP)
-    else:
-        logger.info('Stop application loop.')
-
-
-def parse_cmd_args(args):
-    """
-    Разбирает аргументы командной строки.
-
-    :param args: список аргументов
-    :type args: list
-
-    :rtype: argparse.Namespace
-    """
-    parser = argparse.ArgumentParser(
-        description='Push notifications daemon.'
-    )
-    parser.add_argument(
-        '-c',
-        '--config',
-        dest='config',
-        required=True,
-        help='Path to configuration file.'
-    )
-    parser.add_argument(
-        '-d',
-        '--daemon',
-        dest='daemon',
-        action='store_true',
-        help='Daemonize process.'
-    )
-    parser.add_argument(
-        '-P',
-        '--pid',
-        dest='pidfile',
-        help='Path to pidfile.'
-    )
-
-    return parser.parse_args(args=args)
-
-
-def daemonize():
-    """
-    Демонизирует текущий процесс.
-    """
-    try:
-        pid = os.fork()
-    except OSError as exc:
-        raise Exception("%s [%d]" % (exc.strerror, exc.errno))
-
-    if pid == 0:
-        os.setsid()
-
-        try:
-            pid = os.fork()
-        except OSError as exc:
-            raise Exception("%s [%d]" % (exc.strerror, exc.errno))
-
-        if pid > 0:
-            os._exit(0)
-    else:
-        os._exit(0)
-
-
-class Config(object):
-    """
-    Класс для хранения настроек приложения.
-    """
-    pass
-
-#Протестировано
-def load_config_from_pyfile(filepath):
-    """
-    Создает Config объект из py файла и загружает в него настройки.
-
-    Используются только camel-case переменные.
-
-    :param filepath: путь до py файла с настройками
-    :type filepath: basestring
-
-    :rtype: Config
-    """
-    cfg = Config()
-
-    variables = {}
-
-    execfile(filepath, variables)
-
-    for key, value in variables.iteritems():
-        if key.isupper():
-            setattr(cfg, key, value)
-
-    return cfg
+    logger.info('Stop application loop.')
 
 
 def install_signal_handlers():
@@ -282,11 +201,6 @@ def install_signal_handlers():
         gevent.signal(signum, stop_handler, signum)
 
 
-def create_pidfile(pidfile_path):
-    pid = str(os.getpid())
-    with open(pidfile_path, 'w') as f:
-        f.write(pid)
-
 
 def main(argv):
     """
@@ -297,9 +211,7 @@ def main(argv):
     :param argv: агрументы командной строки.
     :type argv: list
     """
-    print(argv)
     args = parse_cmd_args(argv[1:])
-    print(args)
     if args.daemon:
         daemonize()
 
@@ -328,8 +240,7 @@ def main(argv):
             logger.exception(exc)
 
             sleep(config.SLEEP_ON_FAIL)
-    else:
-        logger.info('Stop application loop in main.')
+    logger.info('Stop application loop in main.')
 
     return exit_code
 
