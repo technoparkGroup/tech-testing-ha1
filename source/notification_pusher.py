@@ -40,9 +40,6 @@ def getQueue(config):
 def getTube(queue, config):
     return queue.tube(config.QUEUE_TUBE)
 
-def create_queue():
-    return gevent_queue.Queue()
-
 def get_free_count(worker_pool):
     return worker_pool.free_count()
 
@@ -60,9 +57,6 @@ def create_worker(notification_worker, task, processed_task_queue, config):
 
 def get_task_queue_size(task_queue):
     return task_queue.qsize()
-
-def get_task_from_task_queue(task_queue):
-    return task_queue.get_nowait()
 
 def get_task_attr(task, action_name):
     return getattr(task, action_name)()
@@ -177,7 +171,7 @@ def main_loop(config):
     logger.info('Create worker pool[{size}].'.format(size=config.WORKER_POOL_SIZE))
     worker_pool = Pool(config.WORKER_POOL_SIZE)
 
-    processed_task_queue = create_queue()
+    processed_task_queue = gevent_queue.Queue()
 
     logger.info('Run main loop. Worker pool size={count}. Sleep time is {sleep}.'.format(
         count=config.WORKER_POOL_SIZE, sleep=config.SLEEP

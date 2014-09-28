@@ -39,12 +39,12 @@ class NotificationPusherTestCase(unittest.TestCase):
         Корректный конфиг
         """
         config = helpers.create_config()
-        with mock.patch('source.notification_pusher.create_queue', mock.Mock("create_queue")) as create_queue:
+        with mock.patch('gevent.queue.Queue', mock.Mock("create_queue")) as create_queue:
             create_queue.side_effect = stop_running
             notification_pusher.main_loop(config=config)
         create_queue.assert_called_once_with()
 
-    @mock.patch('source.notification_pusher.create_queue', mock.Mock("create_queue"))
+    @mock.patch('gevent.queue.Queue', mock.Mock("create_queue"))
     def test_mainloop_incorrect_config(self):
         """
         Некорректный конфиг
@@ -136,7 +136,7 @@ class NotificationPusherTestCase(unittest.TestCase):
         config = helpers.create_config()
         config.WORKER_POOL_SIZE = 0
         processed_queue = mock.Mock()
-        with mock.patch('source.notification_pusher.create_queue', mock.Mock(return_value=processed_queue)):
+        with mock.patch('gevent.queue.Queue', mock.Mock(return_value=processed_queue)):
             with mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock()) as done:
                 notification_pusher.main_loop(config)
         done.assert_called_once_with(processed_queue)
@@ -147,9 +147,6 @@ class NotificationPusherTestCase(unittest.TestCase):
         Пустая очередь
         """
         task_queue = gevent_queue.Queue()
-        # task = mock.Mock()
-        # action_name = "action"
-        # task_queue.get_nowait = task, action_name
         logger = mock.Mock()
         with mock.patch('source.notification_pusher.logger', logger):
             notification_pusher.done_with_processed_tasks(task_queue)
