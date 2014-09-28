@@ -40,6 +40,24 @@ def getQueue(config):
 def getTube(queue, config):
     return queue.tube(config.QUEUE_TUBE)
 
+def create_queue():
+    return gevent_queue.Queue()
+
+def get_free_count(worker_pool):
+    return worker_pool.free_count()
+
+def take_task(tube, config):
+    return tube.take(config.QUEUE_TAKE_TIMEOUT)
+
+def create_worker(notification_worker, task, processed_task_queue, config):
+    return Greenlet(
+                    notification_worker,
+                    task,
+                    processed_task_queue,
+                    timeout=config.HTTP_CONNECTION_TIMEOUT,
+                    verify=False
+                )
+
 
 def notification_worker(task, task_queue, *args, **kwargs):
     """
@@ -136,58 +154,50 @@ def main_loop(config):
      * Посылаем уведомления о том, что задачи завершены в tarantool.queue.
      * Спим config.SLEEP секунд.
     """
-    logger.info('Connect to queue server on {host}:{port} space #{space}.'.format(
-        host=config.QUEUE_HOST, port=config.QUEUE_PORT, space=config.QUEUE_SPACE
-    ))
-    queue = tarantool_queue.Queue(
-        host=config.QUEUE_HOST, port=config.QUEUE_PORT, space=config.QUEUE_SPACE
-    )
+    # logger.info('Connect to queue server on {host}:{port} space #{space}.'.format(
+    #     host=config.QUEUE_HOST, port=config.QUEUE_PORT, space=config.QUEUE_SPACE
+    # ))
+    queue = getQueue(config=config)
 
     logger.info('Use tube [{tube}], take timeout={take_timeout}.'.format(
         tube=config.QUEUE_TUBE,
         take_timeout=config.QUEUE_TAKE_TIMEOUT
     ))
 
-    tube = queue.tube(config.QUEUE_TUBE)
+    tube = getTube(queue=queue, config=config)
 
     logger.info('Create worker pool[{size}].'.format(size=config.WORKER_POOL_SIZE))
     worker_pool = Pool(config.WORKER_POOL_SIZE)
 
-    processed_task_queue = gevent_queue.Queue()
+    processed_task_queue = create_queue()
 
     logger.info('Run main loop. Worker pool size={count}. Sleep time is {sleep}.'.format(
         count=config.WORKER_POOL_SIZE, sleep=config.SLEEP
     ))
 
     while run_application:
-        free_workers_count = worker_pool.free_count()
+        free_workers_count = get_free_count(worker_pool=worker_pool)
         logger.debug('Pool has {count} free workers.'.format(count=free_workers_count))
 
         for number in xrange(free_workers_count):
             logger.debug('Get task from tube for worker#{number}.'.format(number=number))
 
-            task = tube.take(config.QUEUE_TAKE_TIMEOUT)
+            task = take_task(tube=tube, config=config)
 
             if task:
-                logger.info('Start worker#{number} for task id={task_id}.'.format(
-                    task_id=task.task_id, number=number
-                ))
+                # logger.info('Start worker#{number} for task id={task_id}.'.format(
+                #     task_id=task.task_id, number=number
+                # ))
 
-                worker = Greenlet(
-                    notification_worker,
-                    task,
-                    processed_task_queue,
-                    timeout=config.HTTP_CONNECTION_TIMEOUT,
-                    verify=False
-                )
+                worker = create_worker(notification_worker, task, processed_task_queue, config)
                 worker_pool.add(worker)
                 worker.start()
 
-        if is_testing:
-            break
-
         done_with_processed_tasks(processed_task_queue)
         sleep(config.SLEEP)
+
+        if is_testing:
+            break
     logger.info('Stop application loop.')
 
 
