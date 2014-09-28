@@ -32,6 +32,8 @@ exit_code = 0
 
 is_testing = False
 
+empty_queue_msg = "empty_queue"
+
 logger = logging.getLogger('pusher')
 
 def getQueue(config):
@@ -58,6 +60,14 @@ def create_worker(notification_worker, task, processed_task_queue, config):
                     verify=False
                 )
 
+def get_task_queue_size(task_queue):
+    return task_queue.qsize()
+
+def get_task_from_task_queue(task_queue):
+    return task_queue.get_nowait()
+
+def get_task_attr(task, action_name):
+    return getattr(task, action_name)()
 
 def notification_worker(task, task_queue, *args, **kwargs):
     """
@@ -100,24 +110,24 @@ def done_with_processed_tasks(task_queue):
 
     :param task_queue: очередь, хранящая кортежи (объект задачи, имя действия)
     """
-    logger.debug('Send info about finished tasks to queue. Finished = ' + str(task_queue.qsize()))
+    logger.debug('Send info about finished tasks to queue. Finished = ' + str(get_task_queue_size(task_queue)))
 
-    for _ in xrange(task_queue.qsize()):
+    for _ in xrange(get_task_queue_size(task_queue)):
         try:
             task, action_name = task_queue.get_nowait()
 
-            logger.debug('{name} task#{task_id}.'.format(
-                name=action_name.capitalize(),
-                task_id=task.task_id
-            ))
+            # logger.debug('{name} task#{task_id}.'.format(
+            #     name=action_name.capitalize(),
+            #     task_id=task.task_id
+            # ))
 
             try:
-                getattr(task, action_name)()
+                get_task_attr(task, action_name)
             except tarantool.DatabaseError as exc:
                 logger.exception(exc)
         except gevent_queue.Empty:
-            logger.debug("empty queue")
-            break
+            logger.debug(empty_queue_msg)
+        break
 
 
 def stop_handler(signum):
