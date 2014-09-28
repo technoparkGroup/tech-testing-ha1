@@ -30,8 +30,6 @@ run_application = True
 exit_code = 0
 """Код возврата приложения"""
 
-is_testing = False
-
 logger = logging.getLogger('pusher')
 
 def getQueue(config):
@@ -196,8 +194,6 @@ def main_loop(config):
         done_with_processed_tasks(processed_task_queue)
         sleep(config.SLEEP)
 
-        if is_testing:
-            break
     logger.info('Stop application loop.')
 
 
@@ -243,6 +239,7 @@ def main(argv):
     while run_application:
         try:
             main_loop(config)
+
         except Exception as exc:
             logger.error(
                 'Error in main loop. Go to sleep on {} second(s).'.format(config.SLEEP_ON_FAIL)
@@ -250,6 +247,7 @@ def main(argv):
             logger.exception(exc)
 
             sleep(config.SLEEP_ON_FAIL)
+
     logger.info('Stop application loop in main.')
 
     return exit_code
