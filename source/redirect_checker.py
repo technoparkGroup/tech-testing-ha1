@@ -12,7 +12,7 @@ from lib.utils import (check_network_status, create_pidfile, daemonize,
 from lib.worker import worker
 
 logger = logging.getLogger('redirect_checker')
-
+is_testing = False
 
 def main_loop(config):
     logger.info(
@@ -39,6 +39,8 @@ def main_loop(config):
                 c.terminate()
 
         sleep(config.SLEEP)
+        if is_testing:
+            break
 
 
 def main(argv):
