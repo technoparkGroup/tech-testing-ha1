@@ -15,7 +15,7 @@ from source.tests.test_redirect_checker import RedirectCheckerTestCase
 if __name__ == '__main__':
     suite = unittest.TestSuite((
         unittest.makeSuite(NotificationPusherTestCase),
-        #unittest.makeSuite(RedirectCheckerTestCase),
+        unittest.makeSuite(RedirectCheckerTestCase),
         unittest.makeSuite(UtilsTestCase)
     ))
     result = unittest.TextTestRunner().run(suite)
