@@ -5,21 +5,26 @@ import mock
 from source import redirect_checker
 
 
+def stop_running(self, *args):
+    redirect_checker.run = False
+
+
 class RedirectCheckerTestCase(unittest.TestCase):
     def setUp(self):
-        redirect_checker.is_testing = True
+        redirect_checker.run = True
         self.config = mock.Mock("mock config")
         self.load_from_pyfile = mock.Mock("mock loader")
         redirect_checker.load_config_from_pyfile = self.load_from_pyfile
-        self.load_from_pyfile.return_value=self.config
+        self.load_from_pyfile.return_value = self.config
         self.config.EXIT_CODE = 0
         self.config.SLEEP = 0.1
         self.config.LOGGING = {
-            "version" : 1
+            "version": 1
         }
 
     @mock.patch('source.redirect_checker.main_loop', mock.Mock())
-    @mock.patch('source.redirect_checker.parse_cmd_args', mock.Mock(return_value=Namespace(daemon=True, pidfile=None, config='./source/tests/config/pusher_config.py')))
+    @mock.patch('source.redirect_checker.parse_cmd_args', mock.Mock(
+        return_value=Namespace(daemon=True, pidfile=None, config='./source/tests/config/pusher_config.py')))
     def test_main_with_daemon_arg_without_pidfile(self):
         """
         Проверка вызова метода daemonize при передаче параметра
@@ -34,7 +39,8 @@ class RedirectCheckerTestCase(unittest.TestCase):
 
 
     @mock.patch('source.redirect_checker.main_loop', mock.Mock())
-    @mock.patch('source.redirect_checker.parse_cmd_args', mock.Mock(return_value=Namespace(daemon=False, pidfile="somePID", config='./source/tests/config/pusher_config.py')))
+    @mock.patch('source.redirect_checker.parse_cmd_args', mock.Mock(
+        return_value=Namespace(daemon=False, pidfile="somePID", config='./source/tests/config/pusher_config.py')))
     def test_main_with_pidfile_without_daemon(self):
         """
         Проверка вызова метода create_pidfile при передаче параметров
@@ -47,6 +53,7 @@ class RedirectCheckerTestCase(unittest.TestCase):
                 create_pid.assert_called_once_with("somePID")
                 redirect_checker.main_loop.assert_called_once_with(self.config)
 
+
     @mock.patch('source.redirect_checker.check_network_status', mock.Mock(return_value=False))
     @mock.patch('source.redirect_checker.sleep', mock.Mock())
     def test_redirect_checker_mainloop_network_is_down(self):
@@ -56,6 +63,7 @@ class RedirectCheckerTestCase(unittest.TestCase):
         """
         my_active_child = mock.Mock()
         with mock.patch('source.redirect_checker.active_children', mock.Mock(return_value=[my_active_child])):
+            redirect_checker.sleep.side_effect = stop_running
             self.config.SLEEP = 0
             self.config.WORKER_POOL_SIZE = 10
             self.config.CHECK_URL = ''
@@ -70,10 +78,12 @@ class RedirectCheckerTestCase(unittest.TestCase):
     @mock.patch('source.redirect_checker.active_children', mock.Mock(return_value=["some active child"]))
     def test_redirect_checker_mainloop_network_is_up_required_worker_0(self):
         """
-        тестирование основного цикла с выключенной сетью
+        тестирование основного цикла с включенной сетью
+        required_workers_count <= 0
         :return:
         """
         with mock.patch('source.redirect_checker.spawn_workers', mock.Mock()) as spawn_worwkers:
+            redirect_checker.sleep.side_effect = stop_running
             self.config.SLEEP = 0
             self.config.WORKER_POOL_SIZE = 1
             self.config.CHECK_URL = ''
@@ -87,10 +97,12 @@ class RedirectCheckerTestCase(unittest.TestCase):
     @mock.patch('source.redirect_checker.active_children', mock.Mock(return_value=["some active child"]))
     def test_redirect_checker_mainloop_network_is_up_required_worker_not_0(self):
         """
-        тестирование основного цикла с выключенной сетью
+        тестирование основного цикла с включенной сетью
+        required_workers_count > 0
         :return:
         """
         pid = 123
+        redirect_checker.sleep.side_effect = stop_running
         with mock.patch('os.getpid', mock.Mock(return_value=pid)):
             with mock.patch('source.redirect_checker.spawn_workers', mock.Mock()) as spawn_worwkers:
                 self.config.SLEEP = 0
