@@ -13,7 +13,7 @@ def stop_running(self, *args):
 class RedirectCheckerTestCase(unittest.TestCase):
     def setUp(self):
         redirect_checker.run = True
-        self.config = helpers.create_config()
+        self.config = helpers.create_pusher_config()
         redirect_checker.load_config_from_pyfile = mock.Mock(return_value=self.config)
         redirect_checker.sleep = mock.Mock(side_effect=stop_running)
 
