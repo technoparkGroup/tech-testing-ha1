@@ -1,20 +1,16 @@
 # coding=utf-8
 from argparse import Namespace
 import requests
-import tarantool
 import unittest
-import gevent
 
+import tarantool
 import mock
 from tarantool_queue import Queue
-from tarantool import DatabaseError
-import tarantool_queue
 from mock import patch
+from gevent import queue as gevent_queue
 
 from source import notification_pusher
-from source.lib.utils import Config
 from source.tests import helpers
-from gevent import queue as gevent_queue
 
 
 class Object():
@@ -33,21 +29,20 @@ def stop_running(*args):
 
 
 class NotificationPusherTestCase(unittest.TestCase):
+
     def setUp(self):
         notification_pusher.run_application = True
-        self.config = Config()
-        self.config.LOGGING = {
-            'version': 1
-        }
+        self.config = helpers.create_config()
+        notification_pusher.sleep = mock.Mock(side_effect=stop_running)
 
     def test_mainloop_correct_config(self):
         """
         Корректный конфиг
         """
-        config = helpers.create_config()
+
         with mock.patch('gevent.queue.Queue', mock.Mock("create_queue")) as create_queue:
             create_queue.side_effect = stop_running
-            notification_pusher.main_loop(config=config)
+            notification_pusher.main_loop(config=self.config)
         create_queue.assert_called_once_with()
 
     @mock.patch('gevent.queue.Queue', mock.Mock("create_queue"))
@@ -55,96 +50,77 @@ class NotificationPusherTestCase(unittest.TestCase):
         """
         Некорректный конфиг
         """
-        config = helpers.create_config()
-        config.QUEUE_PORT = None
+        self.config.QUEUE_PORT = None
         with self.assertRaises(Queue.BadConfigException):
-            notification_pusher.main_loop(config=config)
+            notification_pusher.main_loop(config=self.config)
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
-    @mock.patch('source.notification_pusher.sleep', mock.Mock())
     def test_mainloop_no_free_workers(self):
         """
         Без свободных воркеров
         """
-        notification_pusher.sleep.side_effect = stop_running
         with mock.patch('source.notification_pusher.get_free_count', mock.Mock(return_value=0)):
             with mock.patch('source.notification_pusher.take_task', mock.Mock()) as take_task:
-                config = helpers.create_config()
-                notification_pusher.main_loop(config)
+                notification_pusher.main_loop(self.config)
         assert take_task.not_called
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
-    @mock.patch('source.notification_pusher.sleep', mock.Mock())
     def test_mainloop_without_tasks(self):
         """
         Со свободными воркерами, но без задач
         """
-        notification_pusher.sleep.side_effect = stop_running
         task = None
-        config = helpers.create_config()
-        config.WORKER_POOL_SIZE = 1
+        self.config.WORKER_POOL_SIZE = 1
         with mock.patch('source.notification_pusher.create_worker', mock.Mock()) as create_worker:
             with mock.patch('source.notification_pusher.take_task', mock.Mock(return_value=task)):
-                notification_pusher.main_loop(config)
+                notification_pusher.main_loop(self.config)
         assert create_worker.not_called
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
-    @mock.patch('source.notification_pusher.sleep', mock.Mock())
     def test_mainloop_with_task(self):
         """
         С задачей
         """
-        notification_pusher.sleep.side_effect = stop_running
         task = mock.Mock("Task")
-        config = helpers.create_config()
-        config.WORKER_POOL_SIZE = 1
+        self.config.WORKER_POOL_SIZE = 1
         with mock.patch('source.notification_pusher.create_worker', mock.Mock()) as create_worker:
             with mock.patch('source.notification_pusher.take_task', mock.Mock(return_value=task)):
-                notification_pusher.main_loop(config)
+                notification_pusher.main_loop(self.config)
         assert task in create_worker.call_args[0]
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
-    @mock.patch('source.notification_pusher.sleep', mock.Mock())
     @mock.patch('source.notification_pusher.take_task', mock.Mock())
     def test_mainloop_start_correct_worker(self):
         """
         Проверяем, что стартуется именно созданный воркер
         """
-        notification_pusher.sleep.side_effect = stop_running
-        config = helpers.create_config()
-        config.WORKER_POOL_SIZE = 1
+        self.config.WORKER_POOL_SIZE = 1
         with mock.patch('source.notification_pusher.create_worker', mock.Mock()) as worker:
-            notification_pusher.main_loop(config)
+            notification_pusher.main_loop(self.config)
         assert mock.call().start() in worker.mock_calls
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
-    @mock.patch('source.notification_pusher.sleep', mock.Mock())
     @mock.patch('source.notification_pusher.take_task', mock.Mock())
     @mock.patch('source.notification_pusher.get_free_count', mock.Mock(return_value=1))
     def test_mainloop_adding_correct_worker_to_workerpool(self):
         """
         Проверяем, что в пул добавляется нужный воркер
         """
-        notification_pusher.sleep.side_effect = stop_running
-        config = helpers.create_config()
         worker = mock.Mock()
         with mock.patch('source.notification_pusher.Pool', mock.Mock()) as worker_pool:
             with mock.patch('source.notification_pusher.create_worker', mock.Mock(return_value=worker)):
-                notification_pusher.main_loop(config)
+                notification_pusher.main_loop(self.config)
         assert mock.call().add(worker) in worker_pool.mock_calls
 
-    @mock.patch('source.notification_pusher.sleep', mock.Mock())
     def test_done_with_processed_task_call_with_correct_queue(self):
         """
         Проверяем, что на вход метода обработки завершенных задач передается именно созданная в начале очередь
         """
-        notification_pusher.sleep.side_effect = stop_running
-        config = helpers.create_config()
-        config.WORKER_POOL_SIZE = 0
+        self.config.WORKER_POOL_SIZE = 0
         processed_queue = mock.Mock()
         with mock.patch('gevent.queue.Queue', mock.Mock(return_value=processed_queue)):
             with mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock()) as done:
-                notification_pusher.main_loop(config)
+                notification_pusher.main_loop(self.config)
         done.assert_called_once_with(processed_queue)
 
     @mock.patch('source.notification_pusher.get_task_queue_size', mock.Mock(return_value=1))
@@ -193,8 +169,7 @@ class NotificationPusherTestCase(unittest.TestCase):
     @mock.patch('source.notification_pusher.parse_cmd_args',
                 mock.Mock(return_value=Namespace(daemon=True, pidfile=None,
                                                  config='./source/tests/config/pusher_config.py')))
-    @mock.patch('source.notification_pusher.sleep', mock.Mock())
-    @mock.patch('source.notification_pusher.main_loop', mock.Mock())
+    @mock.patch('source.notification_pusher.main_loop', mock.Mock(side_effect=stop_running))
     @mock.patch('source.notification_pusher.patch_all', mock.Mock())
     def test_main_with_daemon_arg_no_exception(self):
         """
@@ -206,7 +181,6 @@ class NotificationPusherTestCase(unittest.TestCase):
         with mock.patch('source.notification_pusher.daemonize', mock.Mock()) as daemonize, mock.patch(
                 'source.notification_pusher.create_pidfile', mock.Mock()) as create_pidfile, mock.patch(
                 'source.notification_pusher.load_config_from_pyfile', mock.Mock(return_value=self.config)):
-            notification_pusher.main_loop.side_effect = stop_running
             notification_pusher.main([])
             daemonize.assert_called_once_with()
             self.assertFalse(create_pidfile.called)
@@ -215,9 +189,8 @@ class NotificationPusherTestCase(unittest.TestCase):
     @mock.patch('source.notification_pusher.parse_cmd_args',
                 mock.Mock(return_value=Namespace(daemon=False, pidfile="SomePid",
                                                  config='./source/tests/config/pusher_config.py')))
-    @mock.patch('source.notification_pusher.sleep', mock.Mock())
     @mock.patch('source.notification_pusher.patch_all', mock.Mock())
-    @mock.patch('source.notification_pusher.main_loop', mock.Mock())
+    @mock.patch('source.notification_pusher.main_loop', mock.Mock(side_effect=Exception('some exc')))
     def test_main_with_create_pidfile_arg_raise_exception(self):
         """
         Проверка вызова метода create_pidfile при передаче параметра
@@ -228,9 +201,6 @@ class NotificationPusherTestCase(unittest.TestCase):
         with mock.patch('source.notification_pusher.daemonize', mock.Mock()) as daemonize, mock.patch(
                 'source.notification_pusher.create_pidfile', mock.Mock()) as create_pidfile, mock.patch(
                 'source.notification_pusher.load_config_from_pyfile', mock.Mock(return_value=self.config)):
-            notification_pusher.main_loop.side_effect = Exception("some exc")
-            notification_pusher.sleep.side_effect = stop_running
-            self.config.SLEEP_ON_FAIL = 1
             notification_pusher.main([])
             create_pidfile.assert_called_once_with("SomePid")
             self.assertFalse(daemonize.called)
