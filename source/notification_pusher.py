@@ -1,7 +1,6 @@
 #!/usr/bin/env python2.7
 # coding: utf-8
 
-import argparse
 import json
 import logging
 import os
@@ -18,8 +17,9 @@ from gevent.monkey import patch_all
 from gevent.pool import Pool
 import requests
 import tarantool
-import tarantool_queue
-from source.lib.utils import parse_cmd_args, daemonize, create_pidfile, load_config_from_pyfile
+
+from source.lib.utils import parse_cmd_args, daemonize, create_pidfile, load_config_from_pyfile, get_tube
+
 
 SIGNAL_EXIT_CODE_OFFSET = 128
 """Коды выхода рассчитываются как 128 + номер сигнала"""
@@ -36,13 +36,6 @@ task_bury = 'bury'
 
 logger = logging.getLogger('pusher')
 
-
-def getQueue(config):
-    return tarantool_queue.Queue(host=config.QUEUE_HOST, port=config.QUEUE_PORT, space=config.QUEUE_SPACE)
-
-
-def getTube(queue, config):
-    return queue.tube(config.QUEUE_TUBE)
 
 def get_task_attr(task, action_name):
     return getattr(task, action_name)()
@@ -146,14 +139,13 @@ def main_loop(config):
     # logger.info('Connect to queue server on {host}:{port} space #{space}.'.format(
     # host=config.QUEUE_HOST, port=config.QUEUE_PORT, space=config.QUEUE_SPACE
     # ))
-    queue = getQueue(config=config)
 
     logger.info('Use tube [{tube}], take timeout={take_timeout}.'.format(
         tube=config.QUEUE_TUBE,
         take_timeout=config.QUEUE_TAKE_TIMEOUT
     ))
 
-    tube = getTube(queue=queue, config=config)
+    tube = get_tube(host=config.QUEUE_HOST, port=config.QUEUE_PORT, space=config.QUEUE_SPACE, name=config.QUEUE_TUBE)
 
     logger.info('Create worker pool[{size}].'.format(size=config.WORKER_POOL_SIZE))
     worker_pool = Pool(config.WORKER_POOL_SIZE)

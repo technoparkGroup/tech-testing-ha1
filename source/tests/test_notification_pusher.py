@@ -171,46 +171,90 @@ class NotificationPusherTestCase(unittest.TestCase):
 
         assert mock.call.exception(e) in logger.method_calls
 
+
     @mock.patch('source.notification_pusher.parse_cmd_args',
-                mock.Mock(return_value=Namespace(daemon=True, pidfile=None,
+                mock.Mock(return_value=Namespace(daemon=False, pidfile=None,
                                                  config='./source/tests/config/pusher_config.py')))
-    @mock.patch('source.notification_pusher.main_loop', mock.Mock(side_effect=stop_running))
     @mock.patch('source.notification_pusher.patch_all', mock.Mock())
-    def test_main_with_daemon_arg_no_exception(self):
+    def test_main_without_args(self):
         """
-        Проверка вызова метода daemonize при передаче параметра
-        Main_loop не выдает эксепшена
+        в параметрах не передается daemon и pidfile
 
         :return:
         """
+        notification_pusher.run_application = False
         with mock.patch('source.notification_pusher.daemonize', mock.Mock()) as daemonize, mock.patch(
-                'source.notification_pusher.create_pidfile', mock.Mock()) as create_pidfile, mock.patch(
-                'source.notification_pusher.load_config_from_pyfile', mock.Mock(return_value=self.config)):
+                'source.notification_pusher.create_pidfile', mock.Mock()) as create_pidfile:
             notification_pusher.main([])
-            daemonize.assert_called_once_with()
-            self.assertFalse(create_pidfile.called)
-            assert notification_pusher.main_loop.assert_called_once(self.config)
+            assert not daemonize.called
+            assert not create_pidfile.called
+
+
+
+    @mock.patch('source.notification_pusher.parse_cmd_args',
+                mock.Mock(return_value=Namespace(daemon=True, pidfile=None,
+                                                 config='./source/tests/config/pusher_config.py')))
+    @mock.patch('source.notification_pusher.patch_all', mock.Mock())
+    def test_main_with_daemon_arg(self):
+        """
+        Проверка вызова метода daemonize при передаче параметра
+        :return:
+        """
+        notification_pusher.run_application = False
+        with mock.patch('source.notification_pusher.daemonize', mock.Mock()) as daemonize:
+            notification_pusher.main([])
+            daemonize.assert_called_once()
+
 
     @mock.patch('source.notification_pusher.parse_cmd_args',
                 mock.Mock(return_value=Namespace(daemon=False, pidfile="SomePid",
                                                  config='./source/tests/config/pusher_config.py')))
     @mock.patch('source.notification_pusher.patch_all', mock.Mock())
-    @mock.patch('source.notification_pusher.main_loop', mock.Mock(side_effect=Exception('some exc')))
-    def test_main_with_create_pidfile_arg_raise_exception(self):
+    def test_main_with_create_pidfile_arg(self):
         """
         Проверка вызова метода create_pidfile при передаче параметра
-        Exception в main_loop
 
         :return:
         """
-        with mock.patch('source.notification_pusher.daemonize', mock.Mock()) as daemonize, mock.patch(
-                'source.notification_pusher.create_pidfile', mock.Mock()) as create_pidfile, mock.patch(
-                'source.notification_pusher.load_config_from_pyfile', mock.Mock(return_value=self.config)):
+        notification_pusher.run_application = False
+        with mock.patch('source.notification_pusher.create_pidfile', mock.Mock()) as create_pidfile:
             notification_pusher.main([])
             create_pidfile.assert_called_once_with("SomePid")
-            self.assertFalse(daemonize.called)
-            assert notification_pusher.main_loop.assert_called_once(self.config)
+
+
+    @mock.patch('source.notification_pusher.parse_cmd_args',
+                mock.Mock(return_value=Namespace(daemon=False, pidfile=None,
+                                                 config='./source/tests/config/pusher_config.py')))
+    @mock.patch('source.notification_pusher.main_loop', mock.Mock(side_effect=stop_running))
+    @mock.patch('source.notification_pusher.patch_all', mock.Mock())
+    def test_main_main_loop_success(self):
+        """
+        проверка выполнения mainloop без exception
+
+        :return:
+        """
+
+        with mock.patch('source.notification_pusher.load_config_from_pyfile', mock.Mock(return_value=self.config)):
+            notification_pusher.main([])
+            notification_pusher.main_loop.assert_called_once_with(self.config)
+
+
+    @mock.patch('source.notification_pusher.parse_cmd_args',
+                mock.Mock(return_value=Namespace(daemon=False, pidfile=None,
+                                                 config='./source/tests/config/pusher_config.py')))
+    @mock.patch('source.notification_pusher.main_loop', mock.Mock(side_effect=Exception("some exc")))
+    @mock.patch('source.notification_pusher.patch_all', mock.Mock())
+    def test_main_main_loop_exception(self):
+        """
+        проверка выполнения mainloop с exception
+
+        :return:
+        """
+
+        with mock.patch('source.notification_pusher.load_config_from_pyfile', mock.Mock(return_value=self.config)):
+            notification_pusher.main([])
             assert notification_pusher.sleep.called
+
 
     def test_notification_worker_ack(self):
         """
