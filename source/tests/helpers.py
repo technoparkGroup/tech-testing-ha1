@@ -1,6 +1,5 @@
 from source.lib.utils import Config
 
-
 def create_config():
     config = Config()
     config.QUEUE_HOST = 'localhost'

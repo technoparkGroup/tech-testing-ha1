@@ -1,4 +1,5 @@
 # coding=utf-8
+from argparse import Namespace
 import os
 import unittest
 import urllib2
@@ -100,7 +101,7 @@ class UtilsTestCase(unittest.TestCase):
         pid всегда = 0 при первом вызове и != 0 при втором. os_exit должен вызваться
         :return:
         """
-        with mock.patch('source.lib.utils.try_fork', mock.Mock(side_effect=[0,1])):
+        with mock.patch('source.lib.utils.try_fork', mock.Mock(side_effect=[0, 1])):
             with mock.patch('os._exit', mock.Mock()) as exit:
                 utils.daemonize()
                 assert exit.called
@@ -113,7 +114,47 @@ class UtilsTestCase(unittest.TestCase):
 
     @mock.patch('urllib2.urlopen', mock.Mock(side_effect=urllib2.URLError("url exception")))
     def test_check_network_exception(self):
-         self.assertFalse(utils.check_network_status("someurl", 10))
+        self.assertFalse(utils.check_network_status("someurl", 10))
+
+
+    def test_spawn_process_empty(self):
+        """
+        процессы не создаются
+        :return:
+        """
+        my_process = mock.MagicMock()
+        with mock.patch('multiprocessing.Process', mock.Mock(return_value=my_process)):
+            utils.spawn_workers(0, "target", args=[], parent_pid=10)
+            assert not my_process.start.called
+
+
+    def test_spawn_process_not_empty(self):
+        """
+        процессы создаются
+        :return:
+        """
+        my_process = mock.MagicMock()
+        call_count = 10
+        with mock.patch('source.lib.utils.Process', mock.Mock()) as process:
+            utils.spawn_workers(call_count, "target", args=[], parent_pid=10)
+            assert process.call_count == call_count
+
+    # def test_parse_cmd_args_without_params(self):
+    #     """
+    #     нет параметров командной строки, нет обязательного параметра
+    #     :return:
+    #     """
+    #     with self.assertRaises(Exception):
+    #         utils.parse_cmd_args([])
+
+    def test_parse_cmd_args_with_params(self):
+        """
+        нет параметров командной строки, нет обязательного параметра
+        :return:
+        """
+        config_path = 'some path'
+        pidfile = "pidfile"
+        self.assertEqual(utils.parse_cmd_args(['-c', config_path, '-d', '-P', pidfile]), Namespace(config=config_path, daemon=True, pidfile=pidfile))
 
 
 pass

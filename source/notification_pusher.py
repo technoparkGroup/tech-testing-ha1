@@ -1,7 +1,6 @@
 #!/usr/bin/env python2.7
 # coding: utf-8
 
-import argparse
 import json
 import logging
 import os
@@ -18,8 +17,9 @@ from gevent.monkey import patch_all
 from gevent.pool import Pool
 import requests
 import tarantool
-import tarantool_queue
+
 from source.lib.utils import parse_cmd_args, daemonize, create_pidfile, load_config_from_pyfile, get_tube
+
 
 SIGNAL_EXIT_CODE_OFFSET = 128
 """Коды выхода рассчитываются как 128 + номер сигнала"""
@@ -31,29 +31,45 @@ exit_code = 0
 """Код возврата приложения"""
 
 empty_queue_msg = "empty_queue"
+task_ack = 'ack'
+task_bury = 'bury'
 
 logger = logging.getLogger('pusher')
+
 
 def get_free_count(worker_pool):
     return worker_pool.free_count()
 
+
 def take_task(tube, config):
     return tube.take(config.QUEUE_TAKE_TIMEOUT)
 
+
 def create_worker(notification_worker, task, processed_task_queue, config):
     return Greenlet(
-                    notification_worker,
-                    task,
-                    processed_task_queue,
-                    timeout=config.HTTP_CONNECTION_TIMEOUT,
-                    verify=False
-                )
+        notification_worker,
+        task,
+        processed_task_queue,
+        timeout=config.HTTP_CONNECTION_TIMEOUT,
+        verify=False
+    )
+
 
 def get_task_queue_size(task_queue):
     return task_queue.qsize()
 
+
 def get_task_attr(task, action_name):
     return getattr(task, action_name)()
+
+
+def post_request(url, data, *args, **kwargs):
+    return requests.post(
+        url, data=json.dumps(data), *args, **kwargs
+    )
+
+def bla():
+    return 5
 
 def notification_worker(task, task_queue, *args, **kwargs):
     """
@@ -69,25 +85,21 @@ def notification_worker(task, task_queue, *args, **kwargs):
     try:
         current_thread().name = "pusher.worker#{task_id}".format(task_id=task.task_id)
         data = task.data.copy()
-
-
         url = data.pop('callback_url')
         data['id'] = task.task_id
 
         logger.info('Send data to callback url [{url}].'.format(url=url))
 
-        response = requests.post(
-            url, data=json.dumps(data), *args, **kwargs
-        )
+        response = post_request(url, data)
 
         logger.info('Callback url [{url}] response status code={status_code}.'.format(
             url=url, status_code=response.status_code
         ))
 
-        task_queue.put((task, 'ack'))
+        task_queue.put((task, task_ack))
     except requests.RequestException as exc:
         logger.exception(exc)
-        task_queue.put((task, 'bury'))
+        task_queue.put((task, task_bury))
 
 
 def done_with_processed_tasks(task_queue):
@@ -103,7 +115,7 @@ def done_with_processed_tasks(task_queue):
             task, action_name = task_queue.get_nowait()
 
             # logger.debug('{name} task#{task_id}.'.format(
-            #     name=action_name.capitalize(),
+            # name=action_name.capitalize(),
             #     task_id=task.task_id
             # ))
 
@@ -113,7 +125,7 @@ def done_with_processed_tasks(task_queue):
                 logger.exception(exc)
         except gevent_queue.Empty:
             logger.debug(empty_queue_msg)
-        break
+            break
 
 
 def stop_handler(signum):
@@ -151,7 +163,7 @@ def main_loop(config):
      * Спим config.SLEEP секунд.
     """
     # logger.info('Connect to queue server on {host}:{port} space #{space}.'.format(
-    #     host=config.QUEUE_HOST, port=config.QUEUE_PORT, space=config.QUEUE_SPACE
+    # host=config.QUEUE_HOST, port=config.QUEUE_PORT, space=config.QUEUE_SPACE
     # ))
 
     logger.info('Use tube [{tube}], take timeout={take_timeout}.'.format(
@@ -202,7 +214,6 @@ def install_signal_handlers():
 
     for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT):
         gevent.signal(signum, stop_handler, signum)
-
 
 
 def main(argv):
