@@ -245,6 +245,15 @@ class NotificationPusherTestCase(unittest.TestCase):
             notification_pusher.notification_worker(task, task_queue)
         task_queue.put.assert_called_once_with((task, notification_pusher.task_bury))
 
+    def test_stop_handler_app_stops(self):
+        signal = 100
+        notification_pusher.stop_handler(signal)
+        assert notification_pusher.run_application is False
+
+    def test_stop_handler_correct_exit_code(self):
+        signal = 100
+        notification_pusher.stop_handler(signal)
+        assert notification_pusher.exit_code is notification_pusher.SIGNAL_EXIT_CODE_OFFSET + signal
 pass
 
 
