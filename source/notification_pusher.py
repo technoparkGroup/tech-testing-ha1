@@ -37,39 +37,13 @@ task_bury = 'bury'
 logger = logging.getLogger('pusher')
 
 
-def get_free_count(worker_pool):
-    return worker_pool.free_count()
-
-
-def take_task(tube, config):
-    return tube.take(config.QUEUE_TAKE_TIMEOUT)
-
-
-def create_worker(notification_worker, task, processed_task_queue, config):
-    return Greenlet(
-        notification_worker,
-        task,
-        processed_task_queue,
-        timeout=config.HTTP_CONNECTION_TIMEOUT,
-        verify=False
-    )
-
-
-def get_task_queue_size(task_queue):
-    return task_queue.qsize()
-
-
 def get_task_attr(task, action_name):
     return getattr(task, action_name)()
-
 
 def post_request(url, data, *args, **kwargs):
     return requests.post(
         url, data=json.dumps(data), *args, **kwargs
     )
-
-def bla():
-    return 5
 
 def notification_worker(task, task_queue, *args, **kwargs):
     """
@@ -108,16 +82,16 @@ def done_with_processed_tasks(task_queue):
 
     :param task_queue: очередь, хранящая кортежи (объект задачи, имя действия)
     """
-    logger.debug('Send info about finished tasks to queue. Finished = ' + str(get_task_queue_size(task_queue)))
+    logger.debug('Send info about finished tasks to queue. Finished = ' + str(task_queue.qsize()))
 
-    for _ in xrange(get_task_queue_size(task_queue)):
+    for _ in xrange(task_queue.qsize()):
         try:
             task, action_name = task_queue.get_nowait()
 
-            # logger.debug('{name} task#{task_id}.'.format(
-            # name=action_name.capitalize(),
-            #     task_id=task.task_id
-            # ))
+            logger.debug('{name} task#{task_id}.'.format(
+                name=action_name.capitalize(),
+                task_id=task.task_id
+            ))
 
             try:
                 get_task_attr(task, action_name)
@@ -183,20 +157,26 @@ def main_loop(config):
     ))
 
     while run_application:
-        free_workers_count = get_free_count(worker_pool=worker_pool)
+        free_workers_count = worker_pool.free_count()
         logger.debug('Pool has {count} free workers.'.format(count=free_workers_count))
 
         for number in xrange(free_workers_count):
             logger.debug('Get task from tube for worker#{number}.'.format(number=number))
 
-            task = take_task(tube=tube, config=config)
+            task = tube.take(config.QUEUE_TAKE_TIMEOUT)
 
             if task:
                 # logger.info('Start worker#{number} for task id={task_id}.'.format(
                 #     task_id=task.task_id, number=number
                 # ))
 
-                worker = create_worker(notification_worker, task, processed_task_queue, config)
+                worker = Greenlet(
+                    notification_worker,
+                    task,
+                    processed_task_queue,
+                    timeout=config.HTTP_CONNECTION_TIMEOUT,
+                    verify=False
+                )
                 worker_pool.add(worker)
                 worker.start()
 

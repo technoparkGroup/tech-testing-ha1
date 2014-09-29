@@ -1,13 +1,15 @@
 # coding=utf-8
 from argparse import Namespace
+from gevent.pool import Pool
 import requests
+from tarantool_queue.tarantool_queue import Tube
 import unittest
 
 import tarantool
 import mock
 from tarantool_queue import Queue
 from mock import patch
-from gevent import queue as gevent_queue
+from gevent import queue as gevent_queue, Greenlet
 
 from source import notification_pusher
 from source.tests import helpers
@@ -55,14 +57,14 @@ class NotificationPusherTestCase(unittest.TestCase):
             notification_pusher.main_loop(config=self.config)
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
+    @patch.object(Pool, 'free_count', mock.Mock(return_value=0))
     def test_mainloop_no_free_workers(self):
         """
         Без свободных воркеров
         """
-        with mock.patch('source.notification_pusher.get_free_count', mock.Mock(return_value=0)):
-            with mock.patch('source.notification_pusher.take_task', mock.Mock()) as take_task:
-                notification_pusher.main_loop(self.config)
-        assert take_task.not_called
+        with patch.object(Tube, 'take', mock.Mock()) as take_task:
+            notification_pusher.main_loop(self.config)
+        assert take_task.called is False
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
     def test_mainloop_without_tasks(self):
@@ -71,10 +73,10 @@ class NotificationPusherTestCase(unittest.TestCase):
         """
         task = None
         self.config.WORKER_POOL_SIZE = 1
-        with mock.patch('source.notification_pusher.create_worker', mock.Mock()) as create_worker:
-            with mock.patch('source.notification_pusher.take_task', mock.Mock(return_value=task)):
+        with patch('source.notification_pusher.Greenlet', mock.Mock()) as create_worker:
+            with patch.object(Tube, 'take', mock.Mock(return_value=task)):
                 notification_pusher.main_loop(self.config)
-        assert create_worker.not_called
+        assert create_worker.called is False
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
     def test_mainloop_with_task(self):
@@ -83,34 +85,36 @@ class NotificationPusherTestCase(unittest.TestCase):
         """
         task = mock.Mock("Task")
         self.config.WORKER_POOL_SIZE = 1
-        with mock.patch('source.notification_pusher.create_worker', mock.Mock()) as create_worker:
-            with mock.patch('source.notification_pusher.take_task', mock.Mock(return_value=task)):
+        with patch('source.notification_pusher.Greenlet', mock.Mock()) as create_worker:
+            with patch.object(Tube, 'take', mock.Mock(return_value=task)):
                 notification_pusher.main_loop(self.config)
-        assert task in create_worker.call_args[0]
+                assert task in create_worker.call_args[0]
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
-    @mock.patch('source.notification_pusher.take_task', mock.Mock())
+    @patch.object(Tube, 'take', mock.Mock())
     def test_mainloop_start_correct_worker(self):
         """
         Проверяем, что стартуется именно созданный воркер
         """
         self.config.WORKER_POOL_SIZE = 1
-        with mock.patch('source.notification_pusher.create_worker', mock.Mock()) as worker:
+        worker = mock.Mock()
+        with patch('source.notification_pusher.Greenlet', mock.Mock(return_value=worker)):
             notification_pusher.main_loop(self.config)
-        assert mock.call().start() in worker.mock_calls
+        assert mock.call.start() in worker.mock_calls
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
-    @mock.patch('source.notification_pusher.take_task', mock.Mock())
-    @mock.patch('source.notification_pusher.get_free_count', mock.Mock(return_value=1))
+    @patch.object(Tube, 'take', mock.Mock())
     def test_mainloop_adding_correct_worker_to_workerpool(self):
         """
         Проверяем, что в пул добавляется нужный воркер
         """
         worker = mock.Mock()
-        with mock.patch('source.notification_pusher.Pool', mock.Mock()) as worker_pool:
-            with mock.patch('source.notification_pusher.create_worker', mock.Mock(return_value=worker)):
+        worker_pool = mock.Mock()
+        with mock.patch('source.notification_pusher.Pool', mock.Mock(return_value=worker_pool)):
+            worker_pool.free_count = mock.Mock(return_value=1)
+            with patch('source.notification_pusher.Greenlet', mock.Mock(return_value=worker)):
                 notification_pusher.main_loop(self.config)
-        assert mock.call().add(worker) in worker_pool.mock_calls
+        assert mock.call.add(worker) in worker_pool.mock_calls
 
     def test_done_with_processed_task_call_with_correct_queue(self):
         """
@@ -123,7 +127,8 @@ class NotificationPusherTestCase(unittest.TestCase):
                 notification_pusher.main_loop(self.config)
         done.assert_called_once_with(processed_queue)
 
-    @mock.patch('source.notification_pusher.get_task_queue_size', mock.Mock(return_value=1))
+    @patch.object(gevent_queue.Queue, 'qsize', mock.Mock(return_value=1))
+    @patch.object(gevent_queue.Queue, 'get_nowait', mock.Mock(side_effect=gevent_queue.Empty))
     def test_done_with_processed_tasks_empty_queue(self):
         """
         Пустая очередь
@@ -140,6 +145,7 @@ class NotificationPusherTestCase(unittest.TestCase):
         Все хорошо
         """
         task = Object()
+        task.task_id = 1
         action_name = "action"
         setattr(task, action_name, Object())
 
@@ -155,6 +161,7 @@ class NotificationPusherTestCase(unittest.TestCase):
         Не удалось вызвать getattr у задачи
         """
         task = mock.MagicMock
+        task.task_id = 1
         action_name = "action"
         task_queue = gevent_queue.Queue()
         task_queue.put((task, action_name))
@@ -252,6 +259,10 @@ class NotificationPusherTestCase(unittest.TestCase):
 
 
     def test_notification_worker_ack(self):
+        """
+        Если запрос прошел успешно, задача выполнена
+        :return:
+        """
         task = mock.Mock(name="task")
         task_queue = mock.MagicMock(name="task_queue")
         data = Object()
@@ -264,6 +275,10 @@ class NotificationPusherTestCase(unittest.TestCase):
         task_queue.put.assert_called_once_with((task, notification_pusher.task_ack))
 
     def test_notification_worker_bury(self):
+        """
+        Запрос успешно не прошел
+        :return:
+        """
         task = mock.Mock(name="task")
         task_queue = mock.MagicMock(name="task_queue")
         data = Object()
@@ -274,6 +289,15 @@ class NotificationPusherTestCase(unittest.TestCase):
             notification_pusher.notification_worker(task, task_queue)
         task_queue.put.assert_called_once_with((task, notification_pusher.task_bury))
 
+    def test_stop_handler_app_stops(self):
+        signal = 100
+        notification_pusher.stop_handler(signal)
+        assert notification_pusher.run_application is False
+
+    def test_stop_handler_correct_exit_code(self):
+        signal = 100
+        notification_pusher.stop_handler(signal)
+        assert notification_pusher.exit_code is notification_pusher.SIGNAL_EXIT_CODE_OFFSET + signal
 pass
 
 
