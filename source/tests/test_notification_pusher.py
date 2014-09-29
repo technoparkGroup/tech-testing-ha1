@@ -1,5 +1,6 @@
 # coding=utf-8
 from argparse import Namespace
+import requests
 import tarantool
 import unittest
 import gevent
@@ -8,6 +9,7 @@ import mock
 from tarantool_queue import Queue
 from tarantool import DatabaseError
 import tarantool_queue
+from mock import patch
 
 from source import notification_pusher
 from source.lib.utils import Config
@@ -20,6 +22,10 @@ class Object():
         pass
     def __call__(self, *args, **kwargs):
         pass
+    def __setitem__(self, key, value):
+        pass
+    def A(self, param):
+        return param
 
 
 def stop_running(*args):
@@ -230,6 +236,30 @@ class NotificationPusherTestCase(unittest.TestCase):
             self.assertFalse(daemonize.called)
             assert notification_pusher.main_loop.assert_called_once(self.config)
             assert notification_pusher.sleep.called
+
+    def test_notification_worker_ack(self):
+        task = mock.Mock(name="task")
+        task_queue = mock.MagicMock(name="task_queue")
+        data = Object()
+        data.pop = mock.Mock(return_value="url")
+        task.data.copy = mock.Mock(return_value=data)
+        response = Object()
+        response.status_code = 200
+        with patch('source.notification_pusher.post_request', mock.Mock(return_value=response)):
+            notification_pusher.notification_worker(task, task_queue)
+        task_queue.put.assert_called_once_with((task, notification_pusher.task_ack))
+
+    def test_notification_worker_bury(self):
+        task = mock.Mock(name="task")
+        task_queue = mock.MagicMock(name="task_queue")
+        data = Object()
+        data.pop = mock.Mock(return_value="url")
+        task.data.copy = mock.Mock(return_value=data)
+        response = requests.RequestException
+        with patch('source.notification_pusher.post_request', mock.Mock(side_effect=response)):
+            notification_pusher.notification_worker(task, task_queue)
+        task_queue.put.assert_called_once_with((task, notification_pusher.task_bury))
+
 pass
 
 
