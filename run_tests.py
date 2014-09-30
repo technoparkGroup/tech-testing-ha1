@@ -3,6 +3,7 @@
 import os
 import sys
 import unittest
+from source.tests.test_init import InitTestCase
 from source.tests.test_utils import UtilsTestCase
 
 source_dir = os.path.join(os.path.dirname(__file__), 'source')
@@ -14,9 +15,10 @@ from source.tests.test_redirect_checker import RedirectCheckerTestCase
 
 if __name__ == '__main__':
     suite = unittest.TestSuite((
-        unittest.makeSuite(NotificationPusherTestCase),
-        unittest.makeSuite(RedirectCheckerTestCase),
-        unittest.makeSuite(UtilsTestCase)
+        #unittest.makeSuite(NotificationPusherTestCase),
+        #unittest.makeSuite(RedirectCheckerTestCase),
+        #unittest.makeSuite(UtilsTestCase),
+        unittest.makeSuite(InitTestCase)
     ))
     result = unittest.TextTestRunner().run(suite)
     sys.exit(not result.wasSuccessful())
