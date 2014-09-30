@@ -1,20 +1,11 @@
 # coding=utf-8
-from mock import patch, call
+from mock import patch, call, MagicMock
 from mock import Mock
+from tarantool import DatabaseError
 from tarantool_queue.tarantool_queue import Tube
 import unittest
 from source.lib import worker
 from source.tests import helpers
-
-class Object():
-    def __init__(self):
-        pass
-    def __call__(self, *args, **kwargs):
-        pass
-    def __setitem__(self, key, value):
-        pass
-    def __getitem__(self, item):
-        pass
 
 class WorkerTestCase(unittest.TestCase):
     def setUp(self):
@@ -27,10 +18,8 @@ class WorkerTestCase(unittest.TestCase):
         Процесса-родителя не существует, не заходим в цикл
         :return:
         """
-        input_tube = Mock(name="input_tube")
-        input_tube.opt = Object()
-        output_tube = Mock(name="output_tube")
-        output_tube.opt = Object()
+        input_tube = MagicMock(name="input_tube")
+        output_tube = MagicMock(name="output_tube")
         with patch('source.lib.worker.get_tube', Mock(side_effect=[input_tube, output_tube])):
             worker.worker(self.config, self.parent_pid)
             assert input_tube.called is False
@@ -60,4 +49,70 @@ class WorkerTestCase(unittest.TestCase):
                 worker.worker(self.config, self.parent_pid)
                 assert logger.debug.called is False
 
+    @patch('os.path.exists', Mock(side_effect=[True, False]))
+    def test_worker_is_input_false(self):
+        """
+        is_input = False
+        :return:
+        """
+        task = Mock(name="task")
+        result = (False, "data")
+        input_tube = MagicMock(name="input_tube")
+        input_tube.take.return_value = task
+        output_tube = MagicMock(name="output_tube")
+        with patch('source.lib.worker.get_tube', Mock(side_effect=[input_tube, output_tube])):
+            with patch('source.lib.worker.get_redirect_history_from_task', Mock(return_value=result)):
+                worker.worker(self.config, self.parent_pid)
+                output_tube.put.assert_called_once_with("data")
+
+    @patch('os.path.exists', Mock(side_effect=[True, False]))
+    def test_worker_is_input_true(self):
+        """
+        is_input = True
+        :return:
+        """
+        task = MagicMock(name="task")
+        result = (True, "data")
+        input_tube = MagicMock(name="input_tube")
+        input_tube.take.return_value = task
+        output_tube = MagicMock(name="output_tube")
+        with patch('source.lib.worker.get_tube', Mock(side_effect=[input_tube, output_tube])):
+            with patch('source.lib.worker.get_redirect_history_from_task', Mock(return_value=result)):
+                worker.worker(self.config, self.parent_pid)
+                assert input_tube.put.called is True
+
+    @patch('os.path.exists', Mock(side_effect=[True, False]))
+    @patch('source.lib.worker.get_redirect_history_from_task', Mock(return_value=None))
+    def test_worker_task_ack_exc(self):
+        """
+        Не удалось выполнить task.ack
+        :return:
+        """
+        task = MagicMock(name="task")
+        task.ack.side_effect = DatabaseError
+        input_tube = MagicMock(name="input_tube")
+        input_tube.take.return_value = task
+        output_tube = MagicMock(name="output_tube")
+        logger = MagicMock(name="logger")
+        with patch('source.lib.worker.get_tube', Mock(side_effect=[input_tube, output_tube])):
+            with patch('source.lib.worker.logger', logger):
+                worker.worker(self.config, self.parent_pid)
+                assert logger.exception.called is True
+
+    @patch('os.path.exists', Mock(side_effect=[True, False]))
+    @patch('source.lib.worker.get_redirect_history_from_task', Mock(return_value=None))
+    def test_worker_task_ack_ok(self):
+        """
+        Удалось выполнить task.ack
+        :return:
+        """
+        task = MagicMock(name="task")
+        input_tube = MagicMock(name="input_tube")
+        input_tube.take.return_value = task
+        output_tube = MagicMock(name="output_tube")
+        logger = MagicMock(name="logger")
+        with patch('source.lib.worker.get_tube', Mock(side_effect=[input_tube, output_tube])):
+            with patch('source.lib.worker.logger', logger):
+                worker.worker(self.config, self.parent_pid)
+                assert logger.exception.called is False
 pass
