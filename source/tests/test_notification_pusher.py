@@ -15,15 +15,6 @@ from source import notification_pusher
 from source.tests import helpers
 
 
-class Object():
-    def __init__(self):
-        pass
-    def __call__(self, *args, **kwargs):
-        pass
-    def __setitem__(self, key, value):
-        pass
-
-
 def stop_running(*args):
     notification_pusher.run_application = False
 
@@ -55,11 +46,11 @@ class NotificationPusherTestCase(unittest.TestCase):
             notification_pusher.main_loop(config=self.config)
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
-    @patch.object(Pool, 'free_count', mock.Mock(return_value=0))
     def test_mainloop_no_free_workers(self):
         """
         Без свободных воркеров
         """
+        self.config.WORKER_POOL_SIZE = 0
         with patch.object(Tube, 'take', mock.Mock()) as take_task:
             notification_pusher.main_loop(self.config)
         assert take_task.called is False
@@ -81,7 +72,7 @@ class NotificationPusherTestCase(unittest.TestCase):
         """
         С задачей
         """
-        task = mock.Mock("Task")
+        task = mock.Mock(name="Task")
         self.config.WORKER_POOL_SIZE = 1
         with patch('source.notification_pusher.Greenlet', mock.Mock()) as create_worker:
             with patch.object(Tube, 'take', mock.Mock(return_value=task)):
@@ -142,13 +133,9 @@ class NotificationPusherTestCase(unittest.TestCase):
         """
         Все хорошо
         """
-        task = Object()
-        task.task_id = 1
-        action_name = "action"
-        setattr(task, action_name, Object())
-
+        task = mock.MagicMock(name="task")
         task_queue = gevent_queue.Queue()
-        task_queue.put((task, action_name))
+        task_queue.put((task, "action"))
         logger = mock.MagicMock()
         with mock.patch('source.notification_pusher.logger', logger):
             notification_pusher.done_with_processed_tasks(task_queue)
@@ -158,8 +145,7 @@ class NotificationPusherTestCase(unittest.TestCase):
         """
         Не удалось вызвать getattr у задачи
         """
-        task = mock.MagicMock
-        task.task_id = 1
+        task = mock.MagicMock(name="task")
         action_name = "action"
         task_queue = gevent_queue.Queue()
         task_queue.put((task, action_name))
@@ -179,7 +165,6 @@ class NotificationPusherTestCase(unittest.TestCase):
     def test_main_without_args(self):
         """
         в параметрах не передается daemon и pidfile
-
         :return:
         """
         notification_pusher.run_application = False
@@ -261,13 +246,9 @@ class NotificationPusherTestCase(unittest.TestCase):
         Если запрос прошел успешно, задача выполнена
         :return:
         """
-        task = mock.Mock(name="task")
+        task = mock.MagicMock(name="task")
         task_queue = mock.MagicMock(name="task_queue")
-        data = Object()
-        data.pop = mock.Mock(return_value="url")
-        task.data.copy = mock.Mock(return_value=data)
-        response = Object()
-        response.status_code = 200
+        response = mock.MagicMock(name="response")
         with patch('source.notification_pusher.post_request', mock.Mock(return_value=response)):
             notification_pusher.notification_worker(task, task_queue)
         task_queue.put.assert_called_once_with((task, notification_pusher.task_ack))
@@ -277,11 +258,8 @@ class NotificationPusherTestCase(unittest.TestCase):
         Запрос успешно не прошел
         :return:
         """
-        task = mock.Mock(name="task")
+        task = mock.MagicMock(name="task")
         task_queue = mock.MagicMock(name="task_queue")
-        data = Object()
-        data.pop = mock.Mock(return_value="url")
-        task.data.copy = mock.Mock(return_value=data)
         response = requests.RequestException
         with patch('source.notification_pusher.post_request', mock.Mock(side_effect=response)):
             notification_pusher.notification_worker(task, task_queue)

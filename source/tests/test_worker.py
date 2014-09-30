@@ -11,6 +11,12 @@ class WorkerTestCase(unittest.TestCase):
     def setUp(self):
         self.config = helpers.create_checker_config()
         self.parent_pid = 1
+        self.task = MagicMock(name="task")
+        self.task.data = {
+            "url": "URL",
+            "url_id": 1,
+            "recheck": False,
+        }
 
     @patch('os.path.exists', Mock(return_value=False))
     def test_worker_dead_parent(self):
@@ -119,31 +125,30 @@ class WorkerTestCase(unittest.TestCase):
     @patch('source.lib.worker.get_redirect_history',
            Mock(return_value=([worker.history_type_error], ["URL"], 1)))
     def test_get_redirect_history_from_task_history_error(self):
-        task = MagicMock(name="task")
-        task.data = {
-            "url": "URL",
-            "url_id": 1,
-            "recheck": False,
-            "suspicious": "suspicious"
-        }
-        result = worker.get_redirect_history_from_task(task, 1)
-        assert result[1] is task.data
+        """
+        Ошибка в истории
+        :return:
+        """
+        result = worker.get_redirect_history_from_task(self.task, 1)
+        assert result[1] is self.task.data
 
     @patch('source.lib.worker.get_redirect_history',
            Mock(return_value=([], ["URL"], 1)))
     def test_get_redirect_history_from_task_history_ok(self):
-        task = MagicMock(name="task")
-        task.data = {
-            "url": "URL",
-            "url_id": 1,
-            "recheck": False,
-        }
-        result = worker.get_redirect_history_from_task(task, 1)
-        assert result[1] is not task.data
+        """
+        Нет ошибок в истории
+        :return:
+        """
+        result = worker.get_redirect_history_from_task(self.task, 1)
+        assert result[1] is not self.task.data
 
     @patch('source.lib.worker.get_redirect_history',
            Mock(return_value=([], ["URL"], 1)))
     def test_get_redirect_history_from_task_history_ok_with_suspicious(self):
+        """
+        В данных есть suspicious
+        :return:
+        """
         task = MagicMock(name="task")
         task.data = {
             "url": "URL",
@@ -157,12 +162,10 @@ class WorkerTestCase(unittest.TestCase):
     @patch('source.lib.worker.get_redirect_history',
            Mock(return_value=([], ["URL"], 1)))
     def test_get_redirect_history_from_task_history_ok_without_suspicious(self):
-        task = MagicMock(name="task")
-        task.data = {
-            "url": "URL",
-            "url_id": 1,
-            "recheck": False,
-        }
-        result = worker.get_redirect_history_from_task(task, 1)
+        """
+        Без suspicious в data
+        :return:
+        """
+        result = worker.get_redirect_history_from_task(self.task, 1)
         assert not result[1].has_key("suspicious")
 pass
