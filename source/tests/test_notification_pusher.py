@@ -25,10 +25,6 @@ class Object():
     def __setitem__(self, key, value):
         pass
 
-    def A(self, param):
-        return param
-
-
 def stop_running(*args):
     notification_pusher.run_application = False
 
@@ -36,7 +32,7 @@ def stop_running(*args):
 class NotificationPusherTestCase(unittest.TestCase):
     def setUp(self):
         notification_pusher.run_application = True
-        self.config = helpers.create_config()
+        self.config = helpers.create_pusher_config()
         notification_pusher.sleep = mock.Mock(side_effect=stop_running)
 
     def test_mainloop_correct_config(self):
