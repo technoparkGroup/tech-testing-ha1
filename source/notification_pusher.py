@@ -36,7 +36,6 @@ task_bury = 'bury'
 
 logger = logging.getLogger('pusher')
 
-
 def get_task_attr(task, action_name):
     return getattr(task, action_name)()
 
@@ -65,7 +64,9 @@ def notification_worker(task, task_queue, *args, **kwargs):
         logger.info('Send data to callback url [{url}].'.format(url=url))
 
         response = post_request(url, data)
-
+        # response = requests.post(
+        #     url, data=json.dumps(data), *args, **kwargs
+        # )
         logger.info('Callback url [{url}] response status code={status_code}.'.format(
             url=url, status_code=response.status_code
         ))
@@ -94,6 +95,7 @@ def done_with_processed_tasks(task_queue):
             ))
 
             try:
+                # getattr(task, action_name)()
                 get_task_attr(task, action_name)
             except tarantool.DatabaseError as exc:
                 logger.exception(exc)
@@ -136,9 +138,9 @@ def main_loop(config):
      * Посылаем уведомления о том, что задачи завершены в tarantool.queue.
      * Спим config.SLEEP секунд.
     """
-    # logger.info('Connect to queue server on {host}:{port} space #{space}.'.format(
-    # host=config.QUEUE_HOST, port=config.QUEUE_PORT, space=config.QUEUE_SPACE
-    # ))
+    logger.info('Connect to queue server on {host}:{port} space #{space}.'.format(
+    host=config.QUEUE_HOST, port=config.QUEUE_PORT, space=config.QUEUE_SPACE
+    ))
 
     logger.info('Use tube [{tube}], take timeout={take_timeout}.'.format(
         tube=config.QUEUE_TUBE,
@@ -166,9 +168,9 @@ def main_loop(config):
             task = tube.take(config.QUEUE_TAKE_TIMEOUT)
 
             if task:
-                # logger.info('Start worker#{number} for task id={task_id}.'.format(
-                #     task_id=task.task_id, number=number
-                # ))
+                logger.info('Start worker#{number} for task id={task_id}.'.format(
+                    task_id=task.task_id, number=number
+                ))
 
                 worker = Greenlet(
                     notification_worker,

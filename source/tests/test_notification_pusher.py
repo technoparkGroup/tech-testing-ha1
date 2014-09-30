@@ -105,7 +105,7 @@ class NotificationPusherTestCase(unittest.TestCase):
                 notification_pusher.main_loop(self.config)
         assert mock.call.add(worker) in worker_pool.mock_calls
 
-    def test_done_with_processed_task_call_with_correct_queue(self):
+    def test_mainloop_done_with_processed_task_call_with_correct_queue(self):
         """
         Проверяем, что на вход метода обработки завершенных задач передается именно созданная в начале очередь
         """
@@ -256,13 +256,21 @@ class NotificationPusherTestCase(unittest.TestCase):
     def test_notification_worker_bury(self):
         """
         Запрос успешно не прошел
+
+
         :return:
         """
+        #TODO ВОПРОС В ТОМ, НУЖНО ЛИ ТУТ ПЕРЕДАВАТЬ РЕАЛЬНЫЙ ТАСК, ЧТОБЫ ОН ПРОБОВАЛ СЛАТЬ ЕГО ПОСТОМ
         task = mock.MagicMock(name="task")
+        task.data = {
+            "callback_url": "URL",
+            "id": 1
+        }
+        task.task_id = 1
         task_queue = mock.MagicMock(name="task_queue")
-        response = requests.RequestException
-        with patch('source.notification_pusher.post_request', mock.Mock(side_effect=response)):
-            notification_pusher.notification_worker(task, task_queue)
+        # response = requests.RequestException
+        # with patch('source.notification_pusher.post_request', mock.Mock(side_effect=response)):
+        notification_pusher.notification_worker(task, task_queue)
         task_queue.put.assert_called_once_with((task, notification_pusher.task_bury))
 
     def test_stop_handler_app_stops(self):
