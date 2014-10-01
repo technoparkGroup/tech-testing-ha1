@@ -28,7 +28,7 @@ class WorkerTestCase(unittest.TestCase):
         output_tube = MagicMock(name="output_tube")
         with patch('source.lib.worker.get_tube', Mock(side_effect=[input_tube, output_tube])):
             worker.worker(self.config, self.parent_pid)
-            assert input_tube.called is False
+            self.assertFalse(input_tube.called)
 
     @patch('os.path.exists', Mock(side_effect=[True, False]))
     @patch.object(Tube, 'take', Mock(return_value=None))
@@ -40,7 +40,7 @@ class WorkerTestCase(unittest.TestCase):
         with patch('source.lib.worker.get_redirect_history_from_task',
                    Mock(name="get_redirect_history")) as redirect_history:
             worker.worker(self.config, self.parent_pid)
-            assert redirect_history.called is False
+            self.assertFalse(redirect_history.called)
 
     @patch('os.path.exists', Mock(side_effect=[True, False]))
     @patch('source.lib.worker.get_redirect_history_from_task', Mock(return_value=None))
@@ -53,7 +53,7 @@ class WorkerTestCase(unittest.TestCase):
         with patch.object(Tube, 'take', Mock(return_value=task)):
             with patch('source.lib.worker.logger', Mock(name="logger")) as logger:
                 worker.worker(self.config, self.parent_pid)
-                assert logger.debug.called is False
+                self.assertFalse(logger.debug.called)
 
     @patch('os.path.exists', Mock(side_effect=[True, False]))
     def test_worker_is_input_false(self):
@@ -85,7 +85,7 @@ class WorkerTestCase(unittest.TestCase):
         with patch('source.lib.worker.get_tube', Mock(side_effect=[input_tube, output_tube])):
             with patch('source.lib.worker.get_redirect_history_from_task', Mock(return_value=result)):
                 worker.worker(self.config, self.parent_pid)
-                assert input_tube.put.called is True
+                assert 'data' in input_tube.put.call_args[0]
 
     @patch('os.path.exists', Mock(side_effect=[True, False]))
     @patch('source.lib.worker.get_redirect_history_from_task', Mock(return_value=None))
@@ -103,7 +103,7 @@ class WorkerTestCase(unittest.TestCase):
         with patch('source.lib.worker.get_tube', Mock(side_effect=[input_tube, output_tube])):
             with patch('source.lib.worker.logger', logger):
                 worker.worker(self.config, self.parent_pid)
-                assert logger.exception.called is True
+                self.assertTrue(logger.exception.called)
 
     @patch('os.path.exists', Mock(side_effect=[True, False]))
     @patch('source.lib.worker.get_redirect_history_from_task', Mock(return_value=None))
@@ -120,7 +120,7 @@ class WorkerTestCase(unittest.TestCase):
         with patch('source.lib.worker.get_tube', Mock(side_effect=[input_tube, output_tube])):
             with patch('source.lib.worker.logger', logger):
                 worker.worker(self.config, self.parent_pid)
-                assert logger.exception.called is False
+                self.assertFalse(logger.exception.called)
 
     @patch('source.lib.worker.get_redirect_history',
            Mock(return_value=([worker.history_type_error], ["URL"], 1)))
@@ -130,7 +130,7 @@ class WorkerTestCase(unittest.TestCase):
         :return:
         """
         result = worker.get_redirect_history_from_task(self.task, 1)
-        assert result[1] is self.task.data
+        self.assertEquals(result[1], self.task.data)
 
     @patch('source.lib.worker.get_redirect_history',
            Mock(return_value=([], ["URL"], 1)))
@@ -140,7 +140,7 @@ class WorkerTestCase(unittest.TestCase):
         :return:
         """
         result = worker.get_redirect_history_from_task(self.task, 1)
-        assert result[1] is not self.task.data
+        self.assertNotEquals(result[1], self.task.data)
 
     @patch('source.lib.worker.get_redirect_history',
            Mock(return_value=([], ["URL"], 1)))
@@ -157,7 +157,7 @@ class WorkerTestCase(unittest.TestCase):
             "suspicious": "suspicious"
         }
         result = worker.get_redirect_history_from_task(task, 1)
-        assert result[1]["suspicious"] is "suspicious"
+        self.assertEquals(result[1]["suspicious"], "suspicious")
 
     @patch('source.lib.worker.get_redirect_history',
            Mock(return_value=([], ["URL"], 1)))

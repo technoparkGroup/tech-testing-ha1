@@ -1,10 +1,13 @@
 # coding=utf-8
+from bs4 import BeautifulSoup
+from operator import setitem
 import unittest
 import mock
+import re
 import source
 
 from source.lib import to_unicode, get_counters, fix_market_url, PREFIX_GOOGLE_MARKET, prepare_url, get_url, \
-    ERROR_REDIRECT, make_pycurl_request, to_str
+    ERROR_REDIRECT, make_pycurl_request, to_str, check_for_meta, urljoin
 
 __author__ = 'maxim'
 
@@ -124,7 +127,7 @@ class InitTestCase(unittest.TestCase):
         url, redirect_type, content = get_url(url, timeout=10)
         assert redirect_type == ERROR_REDIRECT and content is None
 
-    def test_init_to_unicode_with_unicode_str(self):
+    def test_to_unicode_with_unicode_str(self):
         """
         Сразу передаем UNICODE
         :return:
@@ -134,7 +137,7 @@ class InitTestCase(unittest.TestCase):
         is_unicode = isinstance(result, unicode)
         assert is_unicode is True
 
-    def test_init_to_unicode_with_not_unicode_str(self):
+    def test_to_unicode_with_not_unicode_str(self):
         """
         Передаем ASCII
         :return:
@@ -144,7 +147,7 @@ class InitTestCase(unittest.TestCase):
         is_unicode = isinstance(result, unicode)
         assert is_unicode is True
 
-    def test_init_to_str_with_ascii(self):
+    def test_to_str_with_ascii(self):
         """
         Передаем ASCII
         :return:
@@ -154,7 +157,7 @@ class InitTestCase(unittest.TestCase):
         is_str = isinstance(result, str)
         assert is_str is True
 
-    def test_init_to_str_with_unicode(self):
+    def test_to_str_with_unicode(self):
         """
         Передаем UNICODE
         :return:
@@ -163,5 +166,63 @@ class InitTestCase(unittest.TestCase):
         result = to_str(val)
         is_str = isinstance(result, str)
         assert is_str is True
+
+    def test_check_for_meta_with_content_split_bad(self):
+        """
+        В контенте не 2 параметра
+        :return:
+        """
+        result = mock.MagicMock(name="result")
+        result.attrs = {
+            "content": True,
+            "http-equiv": "refresh"
+        }
+        result.__getitem__ = mock.Mock(return_value="content")
+        with mock.patch.object(re, 'search', mock.Mock()) as research:
+            with mock.patch.object(BeautifulSoup, 'find', return_value=result):
+                check_for_meta("content", "url")
+                assert research.called is False
+
+    def test_check_for_meta_correct_content_correct_research(self):
+        """
+        Весь путь в check_for_meta
+        :return:
+        """
+        result = mock.MagicMock(name="result")
+        result.attrs = {
+            "content": True,
+            "http-equiv": "refresh"
+        }
+        url = "localhost/lal?what_are_you_doing=dont_know"
+        result.__getitem__ = mock.Mock(return_value="wait;url=" + url)
+        with mock.patch.object(BeautifulSoup, 'find', return_value=result):
+            check = check_for_meta("content", "url")
+            self.assertEquals(check, url)
+
+    @mock.patch.object(re, 'search', mock.Mock(return_value=None))
+    def test_check_for_meta_cant_research(self):
+        """
+        re.search ничего не вернул
+        :return:
+        """
+        result = mock.MagicMock(name="result")
+        result.attrs = {
+            "content": True,
+            "http-equiv": "refresh"
+        }
+        url = "localhost/lal?what_are_you_doing=dont_know"
+        result.__getitem__ = mock.Mock(return_value="wait;url=" + url)
+        with mock.patch("source.lib.urljoin", mock.Mock()) as urljoin:
+            with mock.patch.object(BeautifulSoup, 'find', return_value=result):
+                check = check_for_meta("content", "url")
+                self.assertFalse(urljoin.called)
+                self.assertIsNone(check)
+
+    # def test_check_for_meta_no_content(self):
+    #     result = mock.MagicMock(name="result")
+    #     result.attrs = mock.MagicMock(return_value={"content": True})
+    #     result.attrs.items = mock.MagicMock("items")
+    #     check_for_meta("content", "url")
+    #     self.assertFalse(result.attrs.items.called)
 
 pass

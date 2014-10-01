@@ -247,8 +247,6 @@ class NotificationPusherTestCase(unittest.TestCase):
     def test_notification_worker_bury(self):
         """
         Запрос успешно не прошел
-
-
         :return:
         """
         #TODO ВОПРОС В ТОМ, НУЖНО ЛИ ТУТ ПЕРЕДАВАТЬ РЕАЛЬНЫЙ ТАСК, ЧТОБЫ ОН ПРОБОВАЛ СЛАТЬ ЕГО ПОСТОМ
@@ -259,9 +257,9 @@ class NotificationPusherTestCase(unittest.TestCase):
         }
         task.task_id = 1
         task_queue = mock.MagicMock(name="task_queue")
-        # response = requests.RequestException
-        # with patch('source.notification_pusher.post_request', mock.Mock(side_effect=response)):
-        notification_pusher.notification_worker(task, task_queue)
+        response = requests.RequestException
+        with patch('source.notification_pusher.post_request', mock.Mock(side_effect=response)):
+            notification_pusher.notification_worker(task, task_queue)
         task_queue.put.assert_called_once_with((task, notification_pusher.task_bury))
 
     def test_stop_handler_app_stops(self):

@@ -18,8 +18,8 @@ suite = unittest.TestSuite((
     # unittest.makeSuite(NotificationPusherTestCase),
     # unittest.makeSuite(RedirectCheckerTestCase),
     # unittest.makeSuite(UtilsTestCase),
-    # unittest.makeSuite(WorkerTestCase),
-    unittest.makeSuite(InitTestCase)
+    unittest.makeSuite(WorkerTestCase),
+    # unittest.makeSuite(InitTestCase)
 ))
 if __name__ == '__main__':
     result = unittest.TextTestRunner().run(suite)
