@@ -218,11 +218,29 @@ class InitTestCase(unittest.TestCase):
                 self.assertFalse(urljoin.called)
                 self.assertIsNone(check)
 
-    # def test_check_for_meta_no_content(self):
-    #     result = mock.MagicMock(name="result")
-    #     result.attrs = mock.MagicMock(return_value={"content": True})
-    #     result.attrs.items = mock.MagicMock("items")
-    #     check_for_meta("content", "url")
-    #     self.assertFalse(result.attrs.items.called)
+    def test_check_for_meta_no_meta(self):
+        result = None
+        with mock.patch.object(BeautifulSoup, 'find', return_value=result):
+            check = check_for_meta("content", "url")
+            self.assertIsNone(check)
+
+    def test_check_for_meta_no_httpequiv_attr(self):
+        result = mock.MagicMock(name="result")
+        result.attrs = {
+            "content": True,
+        }
+        with mock.patch.object(BeautifulSoup, 'find', return_value=result):
+            check = check_for_meta("content", "url")
+            self.assertIsNone(check)
+
+    def test_check_for_meta_httpequiv_no_refresh(self):
+        result = mock.MagicMock(name="result")
+        result.attrs = {
+            "content": True,
+            'http-equiv': "no refresh"
+        }
+        with mock.patch.object(BeautifulSoup, 'find', return_value=result):
+            check = check_for_meta("content", "url")
+            self.assertIsNone(check)
 
 pass
