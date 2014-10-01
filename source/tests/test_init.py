@@ -4,7 +4,7 @@ import mock
 import source
 
 from source.lib import to_unicode, get_counters, fix_market_url, PREFIX_GOOGLE_MARKET, prepare_url, get_url, \
-    ERROR_REDIRECT, make_pycurl_request
+    ERROR_REDIRECT, make_pycurl_request, REDIRECT_HTTP, MARKET_SCHEME, REDIRECT_META
 
 __author__ = 'maxim'
 
@@ -121,6 +121,70 @@ class InitTestCase(unittest.TestCase):
         :return:
         """
         url = "some url"
-        url, redirect_type, content = get_url(url, timeout=10)
-        assert redirect_type == ERROR_REDIRECT and content is None
+        self.assertEquals(get_url(url, timeout=10), (url, ERROR_REDIRECT, None))
+
+    def test_get_url_ok_redirect(self):
+        """
+        ignoring ok login redirects
+        :return:
+        """
+        url = "some url"
+        new_redirect_url = 'http://odnoklassniki.ru/asdasd.st.redirect'
+        content = 'this is the end'
+        with mock.patch('source.lib.make_pycurl_request', mock.Mock(return_value=(content, new_redirect_url))):
+            self.assertEquals(get_url(url, timeout=10), (None, None, content))
+
+    # def test_get_url_another_redirect(self):
+    #     new_redirect_url = 'another redirect url'
+    #     content = 'this is the end'
+    #     prepare_url_return = 'prepare_url'
+    #     with mock.patch('source.lib.make_pycurl_request', mock.Mock(return_value=(content, new_redirect_url))),\
+    #         mock.patch('source.lib.prepare_url', mock.Mock(return_value=prepare_url_return)) as prepare_url, \
+    #         mock.patch('source.lib.urlsplit', mock.Mock()):
+    #             self.assertEquals(get_url(new_redirect_url, timeout=10), (prepare_url_return, REDIRECT_HTTP, content))
+    #             prepare_url.assert_called_once_with(new_redirect_url)
+    #             fix_market_url.assert_called_once_with(new_redirect_url)
+
+    def test_get_url_market_url_http_redirect_type(self):
+        with mock.patch('source.lib.fix_market_url', mock.Mock()) as fix_market_url:
+            new_redirect_url = "market://market.url"
+            prepare_url_return = 'url after prepare'
+            content = 'this is original content'
+            with mock.patch('source.lib.make_pycurl_request', mock.Mock(return_value=(content, new_redirect_url))):
+                with mock.patch('source.lib.prepare_url', mock.Mock(return_value=prepare_url_return)) as prepare_url:
+                     self.assertEquals(get_url(new_redirect_url, timeout=10), (prepare_url_return, REDIRECT_HTTP, content))
+                     fix_market_url.assert_called_once_with(new_redirect_url)
+
+    def test_get_url_none_redirect_url_none_redirect_type(self):
+        """
+        redirect url is none
+        return null redirect type
+        :return:
+        """
+        with mock.patch('source.lib.fix_market_url', mock.Mock()) as fix_market_url:
+            new_redirect_url = None
+            prepare_url_return = None
+            content = 'this is original content'
+            with mock.patch('source.lib.make_pycurl_request', mock.Mock(return_value=(content, new_redirect_url))):
+                with mock.patch('source.lib.check_for_meta', mock.Mock(return_value=None)):
+                    with mock.patch('source.lib.prepare_url', mock.Mock(return_value=prepare_url_return)) as prepare_url:
+                        self.assertEquals((prepare_url_return, None, content), get_url('some url', timeout=10))
+                        assert not fix_market_url.called
+                        prepare_url.assert_called_once_with(new_redirect_url)
+
+    def test_get_url_none_redirect_url_meta_redirect_type(self):
+        """
+        redirect url is none
+        return meta redirect type
+        :return:
+        """
+        with mock.patch('source.lib.fix_market_url', mock.Mock()) as fix_market_url:
+            prepare_url_return = new_redirect_url = "not none redirect url"
+            content = 'this is original content'
+            with mock.patch('source.lib.make_pycurl_request', mock.Mock(return_value=(content, None))):
+                with mock.patch('source.lib.check_for_meta', mock.Mock(return_value=new_redirect_url)):
+                    with mock.patch('source.lib.prepare_url', mock.Mock(return_value=prepare_url_return)) as prepare_url:
+                        self.assertEquals((prepare_url_return, REDIRECT_META, content), get_url('some url', timeout=10))
+                        assert not fix_market_url.called
+                        prepare_url.assert_called_once_with(new_redirect_url)
 pass

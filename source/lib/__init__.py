@@ -107,7 +107,11 @@ def make_pycurl_request(url, timeout, useragent=None):
         redirect_url = to_unicode(redirect_url, 'ignore')
     return content, redirect_url
 
+
 ERROR_REDIRECT = 'ERROR'
+
+MARKET_SCHEME = 'market'
+
 
 def get_url(url, timeout, user_agent=None):
     """
@@ -123,19 +127,17 @@ def get_url(url, timeout, user_agent=None):
     redirect_type = None
 
     # ignoring ok login redirects
-    if new_redirect_url and OK_REDIRECT.match(new_redirect_url):
-        return None, redirect_type, content
-
     if new_redirect_url:
+        if OK_REDIRECT.match(new_redirect_url):
+            return None, redirect_type, content
         redirect_type = REDIRECT_HTTP
     else:
         new_redirect_url = check_for_meta(content, url)
         if new_redirect_url:
             redirect_type = REDIRECT_META
 
-    if new_redirect_url and urlsplit(new_redirect_url).scheme == 'market':
+    if new_redirect_url and urlsplit(new_redirect_url).scheme == MARKET_SCHEME:
         new_redirect_url = fix_market_url(new_redirect_url)
-
     return prepare_url(new_redirect_url), redirect_type, content
 
 
