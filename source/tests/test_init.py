@@ -3,8 +3,7 @@ import unittest
 import mock
 import source
 
-from source.lib import to_unicode, get_counters, fix_market_url, PREFIX_GOOGLE_MARKET, prepare_url, get_url, \
-    ERROR_REDIRECT, make_pycurl_request, REDIRECT_HTTP, MARKET_SCHEME, REDIRECT_META
+from source.lib import to_unicode, get_counters, fix_market_url, PREFIX_GOOGLE_MARKET, prepare_url, get_url, ERROR_REDIRECT, make_pycurl_request, REDIRECT_HTTP, MARKET_SCHEME, REDIRECT_META,to_str
 
 __author__ = 'maxim'
 
@@ -187,4 +186,44 @@ class InitTestCase(unittest.TestCase):
                         self.assertEquals((prepare_url_return, REDIRECT_META, content), get_url('some url', timeout=10))
                         assert not fix_market_url.called
                         prepare_url.assert_called_once_with(new_redirect_url)
+
+    def test_init_to_unicode_with_unicode_str(self):
+        """
+        Сразу передаем UNICODE
+        :return:
+        """
+        val = u'unicode'
+        result = to_unicode(val)
+        is_unicode = isinstance(result, unicode)
+        assert is_unicode is True
+
+    def test_init_to_unicode_with_not_unicode_str(self):
+        """
+        Передаем ASCII
+        :return:
+        """
+        val = 'ascii'
+        result = to_unicode(val)
+        is_unicode = isinstance(result, unicode)
+        assert is_unicode is True
+
+    def test_init_to_str_with_ascii(self):
+        """
+        Передаем ASCII
+        :return:
+        """
+        val = 'ascii'
+        result = to_str(val)
+        is_str = isinstance(result, str)
+        assert is_str is True
+
+    def test_init_to_str_with_unicode(self):
+        """
+        Передаем UNICODE
+        :return:
+        """
+        val = u'unicode'
+        result = to_str(val)
+        is_str = isinstance(result, str)
+        assert is_str is True
 pass

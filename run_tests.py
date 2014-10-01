@@ -17,7 +17,17 @@ from source.tests.test_notification_pusher import NotificationPusherTestCase
 from source.tests.test_redirect_checker import RedirectCheckerTestCase
 
 
+<<<<<<< HEAD
 
+=======
+suite = unittest.TestSuite((
+    # unittest.makeSuite(NotificationPusherTestCase),
+    # unittest.makeSuite(RedirectCheckerTestCase),
+    # unittest.makeSuite(UtilsTestCase),
+    # unittest.makeSuite(WorkerTestCase),
+    unittest.makeSuite(InitTestCase)
+))
+>>>>>>> 30fe57350d0c7aac481997a8002ce1ef8f82176d
 if __name__ == '__main__':
     suite = unittest.TestSuite((
         unittest.makeSuite(NotificationPusherTestCase),
