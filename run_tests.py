@@ -15,10 +15,10 @@ from source.tests.test_redirect_checker import RedirectCheckerTestCase
 
 
 suite = unittest.TestSuite((
-    # unittest.makeSuite(NotificationPusherTestCase),
+    unittest.makeSuite(NotificationPusherTestCase),
     # unittest.makeSuite(RedirectCheckerTestCase),
     # unittest.makeSuite(UtilsTestCase),
-    unittest.makeSuite(WorkerTestCase),
+    # unittest.makeSuite(WorkerTestCase),
     # unittest.makeSuite(InitTestCase)
 ))
 if __name__ == '__main__':

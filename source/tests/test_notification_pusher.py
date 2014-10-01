@@ -51,7 +51,7 @@ class NotificationPusherTestCase(unittest.TestCase):
         self.config.WORKER_POOL_SIZE = 0
         with patch.object(Tube, 'take', mock.Mock()) as take_task:
             notification_pusher.main_loop(self.config)
-        assert take_task.called is False
+        self.assertFalse(take_task.called)
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
     def test_mainloop_without_tasks(self):
@@ -63,7 +63,7 @@ class NotificationPusherTestCase(unittest.TestCase):
         with patch('source.notification_pusher.Greenlet', mock.Mock()) as create_worker:
             with patch.object(Tube, 'take', mock.Mock(return_value=task)):
                 notification_pusher.main_loop(self.config)
-        assert create_worker.called is False
+        self.assertFalse(create_worker.called)
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
     def test_mainloop_with_task(self):
@@ -101,7 +101,7 @@ class NotificationPusherTestCase(unittest.TestCase):
             worker_pool.free_count = mock.Mock(return_value=1)
             with patch('source.notification_pusher.Greenlet', mock.Mock(return_value=worker)):
                 notification_pusher.main_loop(self.config)
-        assert mock.call.add(worker) in worker_pool.mock_calls
+        worker_pool.add.assert_called_once_with(worker)
 
     def test_mainloop_done_with_processed_task_call_with_correct_queue(self):
         """
@@ -137,7 +137,7 @@ class NotificationPusherTestCase(unittest.TestCase):
         logger = mock.MagicMock()
         with mock.patch('source.notification_pusher.logger', logger):
             notification_pusher.done_with_processed_tasks(task_queue)
-        assert logger.exception.call_count is 0
+        self.assertFalse(logger.exception.called)
 
     def test_done_with_processed_tasks_with_task_without_attr(self):
         """
@@ -168,8 +168,8 @@ class NotificationPusherTestCase(unittest.TestCase):
         with mock.patch('source.notification_pusher.daemonize', mock.Mock()) as daemonize, mock.patch(
                 'source.notification_pusher.create_pidfile', mock.Mock()) as create_pidfile:
             notification_pusher.main([])
-            assert not daemonize.called
-            assert not create_pidfile.called
+            self.assertFalse(daemonize.called)
+            self.assertFalse(create_pidfile.called)
 
     @mock.patch('source.notification_pusher.parse_cmd_args',
                 mock.Mock(return_value=Namespace(daemon=True, pidfile=None,
@@ -249,7 +249,6 @@ class NotificationPusherTestCase(unittest.TestCase):
         Запрос успешно не прошел
         :return:
         """
-        #TODO ВОПРОС В ТОМ, НУЖНО ЛИ ТУТ ПЕРЕДАВАТЬ РЕАЛЬНЫЙ ТАСК, ЧТОБЫ ОН ПРОБОВАЛ СЛАТЬ ЕГО ПОСТОМ
         task = mock.MagicMock(name="task")
         task.data = {
             "callback_url": "URL",
@@ -265,12 +264,12 @@ class NotificationPusherTestCase(unittest.TestCase):
     def test_stop_handler_app_stops(self):
         signal = 100
         notification_pusher.stop_handler(signal)
-        assert notification_pusher.run_application is False
+        self.assertFalse(notification_pusher.run_application)
 
     def test_stop_handler_correct_exit_code(self):
         signal = 100
         notification_pusher.stop_handler(signal)
-        assert notification_pusher.exit_code is notification_pusher.SIGNAL_EXIT_CODE_OFFSET + signal
+        self.assertEquals(notification_pusher.exit_code, notification_pusher.SIGNAL_EXIT_CODE_OFFSET + signal)
 
 
 pass
