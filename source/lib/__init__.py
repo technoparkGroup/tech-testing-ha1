@@ -181,7 +181,7 @@ def get_redirect_history(url, timeout, max_redirects=30, user_agent=None):
         history_types.append(redirect_type)
         history_urls.append(redirect_url)
 
-        if redirect_type == 'ERROR':
+        if redirect_type == ERROR_REDIRECT:
             break
 
         if len(history_urls) > max_redirects or (redirect_url in history_urls[:-1]):

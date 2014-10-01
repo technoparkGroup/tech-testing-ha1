@@ -1,9 +1,9 @@
 # coding=utf-8
 import unittest
 import mock
-import source
 
-from source.lib import to_unicode, get_counters, fix_market_url, PREFIX_GOOGLE_MARKET, prepare_url, get_url, ERROR_REDIRECT, make_pycurl_request, REDIRECT_HTTP, MARKET_SCHEME, REDIRECT_META,to_str
+from source.lib import to_unicode, get_counters, fix_market_url, PREFIX_GOOGLE_MARKET, prepare_url, get_url, ERROR_REDIRECT, make_pycurl_request, REDIRECT_HTTP, MARKET_SCHEME, REDIRECT_META,to_str, \
+    get_redirect_history
 
 __author__ = 'maxim'
 
@@ -173,7 +173,7 @@ class InitTestCase(unittest.TestCase):
 
     def test_get_url_none_redirect_url_meta_redirect_type(self):
         """
-        redirect url is none
+        redirect url is none при make_pycurl_request
         return meta redirect type
         :return:
         """
@@ -226,4 +226,76 @@ class InitTestCase(unittest.TestCase):
         result = to_str(val)
         is_str = isinstance(result, str)
         assert is_str is True
+
+    def test_get_redirect_history_mm_ok_domains(self):
+        """
+        правильные возвращаемые значения для одноклассников и mm
+        :return:
+        """
+        ok_url = 'https://odnoklassniki.ru/'
+        mm_url = 'https://my.mail.ru/apps/'
+        history_types = []
+        counters = []
+        self.assertEquals((history_types, [ok_url], counters), get_redirect_history(url=ok_url, timeout=1), "non valid return for ok url")
+        self.assertEquals((history_types, [mm_url], counters), get_redirect_history(url=mm_url, timeout=1), "non valid return for mm url")
+
+    def test_get_redirect_history_none_redirect_url_none_counters(self):
+        """
+        правильные возвращаемые значения для redirect_url = none и отсутствии контента
+        :return:
+        """
+        url = "http://url.ru"
+        redirect_url = None
+        redirect_type = None
+        content = None
+        history_types = []
+        history_urls = [url]
+        counters = []
+        with mock.patch('source.lib.get_url', mock.Mock(return_value=(redirect_url, redirect_type, content))):
+            self.assertEquals((history_types, history_urls, counters), get_redirect_history(url=url, timeout=1), "non valid return values")
+
+    def test_get_redirect_history_error_redirect_type(self):
+        url = "http://url.ru"
+        redirect_url = "http://redirect.url"
+        redirect_type = ERROR_REDIRECT
+        content = 'google-analytics.com/ga.js'
+        google_counter = "GOOGLE_ANALYTICS"
+        history_types = [redirect_type]
+        history_urls = [url, redirect_url]
+        counters = [google_counter]
+        with mock.patch('source.lib.get_url', mock.Mock(return_value=(redirect_url, redirect_type, content))):
+            self.assertEquals((history_types, history_urls, counters), get_redirect_history(url=url, timeout=1), "non valid return values")
+
+
+    def test_max_redirect_break(self):
+        """
+        тест что был произведен только 1 редирект
+        :return:
+        """
+        url = "http://url.ru"
+        redirect_url = "http://redirect.url"
+        redirect_type = "good redirect"
+        content = None
+        history_types = [redirect_type]
+        history_urls = [url, redirect_url]
+        counters = []
+        with mock.patch('source.lib.get_url', mock.Mock(return_value=(redirect_url, redirect_type, content))):
+            self.assertEquals((history_types, history_urls, counters), get_redirect_history(url=url, timeout=1, max_redirects=1), "non valid return values")
+
+    def test_max_redirect_break(self):
+        """
+        тест что был произведен только 1 редирект
+        :return:
+        """
+        url = "http://url.ru"
+        redirect_url = "http://redirect.url"
+        redirect_type = "good redirect"
+        content = None
+        history_types = [redirect_type]
+        history_urls = [url, redirect_url]
+        counters = []
+        with mock.patch('source.lib.get_url', mock.Mock(return_value=(redirect_url, redirect_type, content))):
+            self.assertEquals((history_types, history_urls, counters), get_redirect_history(url=url, timeout=1, max_redirects=1), "non valid return values")
+
+
 pass
