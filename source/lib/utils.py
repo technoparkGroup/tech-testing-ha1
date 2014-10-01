@@ -7,6 +7,10 @@ import urllib2
 
 from tarantool_queue import tarantool_queue
 
+def execfile_wrapper(filepath):
+    variables = {}
+    execfile(filepath, variables)
+    return  variables
 
 def try_fork():
     try:
@@ -51,9 +55,7 @@ def load_config_from_pyfile(filepath):
     """
     cfg = Config()
 
-    variables = {}
-
-    execfile(filepath, variables)
+    variables = execfile_wrapper(filepath)
 
     for key, value in variables.iteritems():
         if key.isupper():

@@ -28,7 +28,8 @@ class UtilsTestCase(unittest.TestCase):
                 create_pidfile('/file/path')
         assert m_open.write.not_called
 
-    def test_bad_config_file(self):
+
+    def test_bad_config_file_path(self):
         """
         Проверка неправильного пути конфига
         :return:
@@ -41,19 +42,29 @@ class UtilsTestCase(unittest.TestCase):
         Проверка конфига с правильными названиями параметров
         :return:
         """
-        conf = utils.load_config_from_pyfile(
-            os.path.realpath(os.path.expanduser("source/tests/config/test_correct_config.py")))
-        self.assertIsNotNone(getattr(conf, "QUEUE_HOST"), getattr(conf, "QUEUE_PORT"))
+        variables = {
+            "QUEUE_HOST": 'localhost',
+            "QUEUE_PORT":  '33013'
+        }
+        with mock.patch('source.lib.utils.execfile_wrapper', mock.Mock(return_value=variables)):
+            conf = utils.load_config_from_pyfile(
+                os.path.realpath(os.path.expanduser("source/tests/config/test_correct_config.py")))
+            self.assertIsNotNone(getattr(conf, "QUEUE_HOST"), getattr(conf, "QUEUE_PORT"))
 
     def test_incorrect_config(self):
         """
         Проверка конфига с неверным названием параметра
         :return:
         """
-        conf = utils.load_config_from_pyfile(
-            os.path.realpath(os.path.expanduser("source/tests/config/test_incorrect_config.py")))
-        with self.assertRaises(AttributeError):
-            getattr(conf, "QUEUE_HOST")
+        variables = {
+            "queue_host": 'localhost',
+            "QUEUE_PORT":  '33013'
+        }
+        with mock.patch('source.lib.utils.execfile_wrapper', mock.Mock(return_value=variables)):
+            conf = utils.load_config_from_pyfile(
+                os.path.realpath(os.path.expanduser("source/tests/config/test_incorrect_config.py")))
+            with self.assertRaises(AttributeError):
+                getattr(conf, "queue_host")
 
     def test_try_fork_successful(self):
         """

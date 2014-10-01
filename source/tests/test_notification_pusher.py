@@ -51,7 +51,7 @@ class NotificationPusherTestCase(unittest.TestCase):
         self.config.WORKER_POOL_SIZE = 0
         with patch.object(Tube, 'take', mock.Mock()) as take_task:
             notification_pusher.main_loop(self.config)
-        assert take_task.called is False
+        self.assertFalse(take_task.called)
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
     def test_mainloop_without_tasks(self):
@@ -63,7 +63,7 @@ class NotificationPusherTestCase(unittest.TestCase):
         with patch('source.notification_pusher.Greenlet', mock.Mock()) as create_worker:
             with patch.object(Tube, 'take', mock.Mock(return_value=task)):
                 notification_pusher.main_loop(self.config)
-        assert create_worker.called is False
+        self.assertFalse(create_worker.called)
 
     @mock.patch('source.notification_pusher.done_with_processed_tasks', mock.Mock())
     def test_mainloop_with_task(self):
@@ -101,7 +101,7 @@ class NotificationPusherTestCase(unittest.TestCase):
             worker_pool.free_count = mock.Mock(return_value=1)
             with patch('source.notification_pusher.Greenlet', mock.Mock(return_value=worker)):
                 notification_pusher.main_loop(self.config)
-        assert mock.call.add(worker) in worker_pool.mock_calls
+        worker_pool.add.assert_called_once_with(worker)
 
     def test_mainloop_done_with_processed_task_call_with_correct_queue(self):
         """
@@ -137,7 +137,7 @@ class NotificationPusherTestCase(unittest.TestCase):
         logger = mock.MagicMock()
         with mock.patch('source.notification_pusher.logger', logger):
             notification_pusher.done_with_processed_tasks(task_queue)
-        assert logger.exception.call_count is 0
+        self.assertFalse(logger.exception.called)
 
     def test_done_with_processed_tasks_with_task_without_attr(self):
         """
@@ -155,9 +155,6 @@ class NotificationPusherTestCase(unittest.TestCase):
 
         assert mock.call.exception(e) in logger.method_calls
 
-    @mock.patch('source.notification_pusher.parse_cmd_args',
-                mock.Mock(return_value=Namespace(daemon=False, pidfile=None,
-                                                 config='./source/tests/config/pusher_config.py')))
     @mock.patch('source.notification_pusher.patch_all', mock.Mock())
     def test_main_without_args(self):
         """
@@ -166,14 +163,13 @@ class NotificationPusherTestCase(unittest.TestCase):
         """
         notification_pusher.run_application = False
         with mock.patch('source.notification_pusher.daemonize', mock.Mock()) as daemonize, mock.patch(
-                'source.notification_pusher.create_pidfile', mock.Mock()) as create_pidfile:
-            notification_pusher.main([])
-            assert not daemonize.called
-            assert not create_pidfile.called
+                'source.notification_pusher.create_pidfile', mock.Mock()) as create_pidfile,\
+                mock.patch('source.notification_pusher.load_config_from_pyfile', mock.Mock(return_value=self.config)):
+            notification_pusher.main(['','-c', './source/tests/config/pusher_config.py'])
+            self.assertFalse(daemonize.called)
+            self.assertFalse(create_pidfile.called)
 
-    @mock.patch('source.notification_pusher.parse_cmd_args',
-                mock.Mock(return_value=Namespace(daemon=True, pidfile=None,
-                                                 config='./source/tests/config/pusher_config.py')))
+    @mock.patch('source.notification_pusher.create_pidfile', mock.Mock())
     @mock.patch('source.notification_pusher.patch_all', mock.Mock())
     def test_main_with_daemon_arg(self):
         """
@@ -181,13 +177,11 @@ class NotificationPusherTestCase(unittest.TestCase):
         :return:
         """
         notification_pusher.run_application = False
-        with mock.patch('source.notification_pusher.daemonize', mock.Mock()) as daemonize:
-            notification_pusher.main([])
+        with mock.patch('source.notification_pusher.daemonize', mock.Mock()) as daemonize,\
+            mock.patch('source.notification_pusher.load_config_from_pyfile', mock.Mock(return_value=self.config)):
+            notification_pusher.main(['','-d', '-c', './source/tests/config/pusher_config.py'])
             daemonize.assert_called_once()
 
-    @mock.patch('source.notification_pusher.parse_cmd_args',
-                mock.Mock(return_value=Namespace(daemon=False, pidfile="SomePid",
-                                                 config='./source/tests/config/pusher_config.py')))
     @mock.patch('source.notification_pusher.patch_all', mock.Mock())
     def test_main_with_create_pidfile_arg(self):
         """
@@ -196,13 +190,12 @@ class NotificationPusherTestCase(unittest.TestCase):
         :return:
         """
         notification_pusher.run_application = False
-        with mock.patch('source.notification_pusher.create_pidfile', mock.Mock()) as create_pidfile:
-            notification_pusher.main([])
-            create_pidfile.assert_called_once_with("SomePid")
+        with mock.patch('source.notification_pusher.load_config_from_pyfile', mock.Mock(return_value=self.config)):
+            with mock.patch('source.notification_pusher.create_pidfile', mock.Mock()) as create_pidfile:
+                notification_pusher.main(['', '-c', './source/tests/config/pusher_config.py', '-P', 'SomePid'])
+                create_pidfile.assert_called_once_with("SomePid")
 
-    @mock.patch('source.notification_pusher.parse_cmd_args',
-                mock.Mock(return_value=Namespace(daemon=False, pidfile=None,
-                                                 config='./source/tests/config/pusher_config.py')))
+
     @mock.patch('source.notification_pusher.main_loop', mock.Mock(side_effect=stop_running))
     @mock.patch('source.notification_pusher.patch_all', mock.Mock())
     def test_main_main_loop_success(self):
@@ -213,14 +206,13 @@ class NotificationPusherTestCase(unittest.TestCase):
         """
 
         with mock.patch('source.notification_pusher.load_config_from_pyfile', mock.Mock(return_value=self.config)):
-            notification_pusher.main([])
+            notification_pusher.main(['','-c', './source/tests/config/pusher_config.py'])
             notification_pusher.main_loop.assert_called_once_with(self.config)
 
-    @mock.patch('source.notification_pusher.parse_cmd_args',
-                mock.Mock(return_value=Namespace(daemon=False, pidfile=None,
-                                                 config='./source/tests/config/pusher_config.py')))
     @mock.patch('source.notification_pusher.main_loop', mock.Mock(side_effect=Exception("some exc")))
     @mock.patch('source.notification_pusher.patch_all', mock.Mock())
+    @mock.patch('source.notification_pusher.create_pidfile', mock.Mock())
+
     def test_main_main_loop_exception(self):
         """
         проверка выполнения mainloop с exception
@@ -229,7 +221,7 @@ class NotificationPusherTestCase(unittest.TestCase):
         """
 
         with mock.patch('source.notification_pusher.load_config_from_pyfile', mock.Mock(return_value=self.config)):
-            notification_pusher.main([])
+            notification_pusher.main(['', '-c', './source/tests/config/pusher_config.py'])
             assert notification_pusher.sleep.called
 
     def test_notification_worker_ack(self):
@@ -247,11 +239,8 @@ class NotificationPusherTestCase(unittest.TestCase):
     def test_notification_worker_bury(self):
         """
         Запрос успешно не прошел
-
-
         :return:
         """
-        #TODO ВОПРОС В ТОМ, НУЖНО ЛИ ТУТ ПЕРЕДАВАТЬ РЕАЛЬНЫЙ ТАСК, ЧТОБЫ ОН ПРОБОВАЛ СЛАТЬ ЕГО ПОСТОМ
         task = mock.MagicMock(name="task")
         task.data = {
             "callback_url": "URL",
@@ -259,20 +248,20 @@ class NotificationPusherTestCase(unittest.TestCase):
         }
         task.task_id = 1
         task_queue = mock.MagicMock(name="task_queue")
-        # response = requests.RequestException
-        # with patch('source.notification_pusher.post_request', mock.Mock(side_effect=response)):
-        notification_pusher.notification_worker(task, task_queue)
+        response = requests.RequestException
+        with patch('source.notification_pusher.post_request', mock.Mock(side_effect=response)):
+            notification_pusher.notification_worker(task, task_queue)
         task_queue.put.assert_called_once_with((task, notification_pusher.task_bury))
 
     def test_stop_handler_app_stops(self):
         signal = 100
         notification_pusher.stop_handler(signal)
-        assert notification_pusher.run_application is False
+        self.assertFalse(notification_pusher.run_application)
 
     def test_stop_handler_correct_exit_code(self):
         signal = 100
         notification_pusher.stop_handler(signal)
-        assert notification_pusher.exit_code is notification_pusher.SIGNAL_EXIT_CODE_OFFSET + signal
+        self.assertEquals(notification_pusher.exit_code, notification_pusher.SIGNAL_EXIT_CODE_OFFSET + signal)
 
 
 pass

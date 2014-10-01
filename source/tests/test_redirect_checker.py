@@ -17,35 +17,34 @@ class RedirectCheckerTestCase(unittest.TestCase):
         redirect_checker.load_config_from_pyfile = mock.Mock(return_value=self.config)
         redirect_checker.sleep = mock.Mock(side_effect=stop_running)
 
-
-#TODO мб это инспектор, переделать с нейм спейсом. Мб просто передавать параметры и не мокать функцию парсинга
     @mock.patch('source.redirect_checker.main_loop', mock.Mock())
-    @mock.patch('source.redirect_checker.parse_cmd_args', mock.Mock(
-        return_value=Namespace(daemon=True, pidfile=None, config='./source/tests/config/pusher_config.py')))
     def test_main_with_daemon_arg_without_pidfile(self):
         """
         Проверка вызова метода daemonize при передаче параметра
+        create_pidfile в параметрах не указан
         :return:
         """
         with mock.patch('source.redirect_checker.daemonize', mock.Mock("daemonize mock")) as daemonize:
             with mock.patch('source.redirect_checker.create_pidfile', mock.Mock()) as create_pid:
-                self.assertEqual(redirect_checker.main([]), self.config.EXIT_CODE)
+                self.assertEqual(redirect_checker.main(['','-d', '-c', './source/tests/config/pusher_config.py']),
+                                 self.config.EXIT_CODE)
                 assert create_pid.not_called
                 daemonize.assert_called_once_with()
                 redirect_checker.main_loop.assert_called_once_with(self.config)
 
 
     @mock.patch('source.redirect_checker.main_loop', mock.Mock())
-    @mock.patch('source.redirect_checker.parse_cmd_args', mock.Mock(
-        return_value=Namespace(daemon=False, pidfile="somePID", config='./source/tests/config/pusher_config.py')))
     def test_main_with_pidfile_without_daemon(self):
         """
         Проверка вызова метода create_pidfile при передаче параметров
+        daemonize в параметрах не указан
         :return:
         """
         with mock.patch('source.redirect_checker.daemonize', mock.Mock("daemonize mock")) as daemonize:
             with mock.patch('source.redirect_checker.create_pidfile', mock.Mock()) as create_pid:
-                self.assertEqual(redirect_checker.main([]), self.config.EXIT_CODE)
+                self.assertEqual(
+                    redirect_checker.main(['','-P', 'somePID', '-c', './source/tests/config/pusher_config.py']),
+                    self.config.EXIT_CODE)
                 self.assertFalse(daemonize.called)
                 create_pid.assert_called_once_with("somePID")
                 redirect_checker.main_loop.assert_called_once_with(self.config)
@@ -99,4 +98,5 @@ class RedirectCheckerTestCase(unittest.TestCase):
                 parent_id = spawn_workers.call_args[1]['parent_pid']
                 assert num == required_workers_count
                 assert pid == parent_id
+
     pass
