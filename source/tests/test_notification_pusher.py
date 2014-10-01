@@ -17,6 +17,18 @@ from source.tests import helpers
 def stop_running(*args):
     notification_pusher.run_application = False
 
+class MyData:
+    def __init__(self, data):
+        self.data = data
+
+    def copy(self):
+        return self.data
+
+class MyTask:
+    def __init__(self, task_id, data):
+        self.task_id = task_id
+        self.data = MyData(data)
+
 
 class NotificationPusherTestCase(unittest.TestCase):
     def setUp(self):
@@ -149,9 +161,9 @@ class NotificationPusherTestCase(unittest.TestCase):
         task_queue.put((task, action_name))
         logger = mock.Mock()
         e = tarantool.DatabaseError("Error")
-        with mock.patch('source.notification_pusher.get_task_attr', mock.Mock(side_effect=e)):
-            with mock.patch('source.notification_pusher.logger', logger):
-                notification_pusher.done_with_processed_tasks(task_queue)
+        task.action = mock.Mock(side_effect=e)
+        with mock.patch('source.notification_pusher.logger', logger):
+            notification_pusher.done_with_processed_tasks(task_queue)
 
         assert mock.call.exception(e) in logger.method_calls
 
@@ -238,9 +250,16 @@ class NotificationPusherTestCase(unittest.TestCase):
         :return:
         """
         task = mock.MagicMock(name="task")
+        task.data = MyData({
+            "callback_url": "URL",
+            "id": 1
+        })
+        task.task_id = 1
+
+        # task = mock.MagicMock(name="task")
         task_queue = mock.MagicMock(name="task_queue")
         response = mock.MagicMock(name="response")
-        with patch('source.notification_pusher.post_request', mock.Mock(return_value=response)):
+        with patch.object(requests, 'post', mock.Mock(return_value=response)):
             notification_pusher.notification_worker(task, task_queue)
         task_queue.put.assert_called_once_with((task, notification_pusher.task_ack))
 
@@ -250,14 +269,15 @@ class NotificationPusherTestCase(unittest.TestCase):
         :return:
         """
         task = mock.MagicMock(name="task")
-        task.data = {
+        task.data = MyData({
             "callback_url": "URL",
             "id": 1
-        }
+        })
         task.task_id = 1
+
         task_queue = mock.MagicMock(name="task_queue")
         response = requests.RequestException
-        with patch('source.notification_pusher.post_request', mock.Mock(side_effect=response)):
+        with patch.object(requests, 'post', mock.Mock(side_effect=response)):
             notification_pusher.notification_worker(task, task_queue)
         task_queue.put.assert_called_once_with((task, notification_pusher.task_bury))
 
