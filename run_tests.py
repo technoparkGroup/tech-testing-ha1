@@ -3,6 +3,7 @@
 import os
 import sys
 import unittest
+from source.tests.test_init import InitTestCase
 from source.tests.test_utils import UtilsTestCase
 from source.tests.test_worker import WorkerTestCase
 
@@ -14,10 +15,11 @@ from source.tests.test_redirect_checker import RedirectCheckerTestCase
 
 
 suite = unittest.TestSuite((
-    unittest.makeSuite(NotificationPusherTestCase),
+    # unittest.makeSuite(NotificationPusherTestCase),
     # unittest.makeSuite(RedirectCheckerTestCase),
     # unittest.makeSuite(UtilsTestCase),
-    # unittest.makeSuite(WorkerTestCase)
+    # unittest.makeSuite(WorkerTestCase),
+    unittest.makeSuite(InitTestCase)
 ))
 if __name__ == '__main__':
     result = unittest.TextTestRunner().run(suite)

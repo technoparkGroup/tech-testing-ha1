@@ -17,6 +17,8 @@ class RedirectCheckerTestCase(unittest.TestCase):
         redirect_checker.load_config_from_pyfile = mock.Mock(return_value=self.config)
         redirect_checker.sleep = mock.Mock(side_effect=stop_running)
 
+
+#TODO мб это инспектор, переделать с нейм спейсом. Мб просто передавать параметры и не мокать функцию парсинга
     @mock.patch('source.redirect_checker.main_loop', mock.Mock())
     @mock.patch('source.redirect_checker.parse_cmd_args', mock.Mock(
         return_value=Namespace(daemon=True, pidfile=None, config='./source/tests/config/pusher_config.py')))
@@ -87,14 +89,14 @@ class RedirectCheckerTestCase(unittest.TestCase):
         """
         pid = 123
         with mock.patch('os.getpid', mock.Mock(return_value=pid)):
-            with mock.patch('source.redirect_checker.spawn_workers', mock.Mock()) as spawn_worwkers:
+            with mock.patch('source.redirect_checker.spawn_workers', mock.Mock()) as spawn_workers:
                 self.config.WORKER_POOL_SIZE = 2
                 required_workers_count = self.config.WORKER_POOL_SIZE - len(redirect_checker.active_children())
                 redirect_checker.main_loop(self.config)
                 assert redirect_checker.sleep.called
-                spawn_worwkers.assert_called_once()
-                num = spawn_worwkers.call_args[1]['num']
-                parent_id = spawn_worwkers.call_args[1]['parent_pid']
+                spawn_workers.assert_called_once()
+                num = spawn_workers.call_args[1]['num']
+                parent_id = spawn_workers.call_args[1]['parent_pid']
                 assert num == required_workers_count
                 assert pid == parent_id
     pass

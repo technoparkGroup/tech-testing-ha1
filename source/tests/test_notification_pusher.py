@@ -14,13 +14,11 @@ from gevent import queue as gevent_queue, Greenlet
 from source import notification_pusher
 from source.tests import helpers
 
-
 def stop_running(*args):
     notification_pusher.run_application = False
 
 
 class NotificationPusherTestCase(unittest.TestCase):
-
     def setUp(self):
         notification_pusher.run_application = True
         self.config = helpers.create_pusher_config()
@@ -157,7 +155,6 @@ class NotificationPusherTestCase(unittest.TestCase):
 
         assert mock.call.exception(e) in logger.method_calls
 
-
     @mock.patch('source.notification_pusher.parse_cmd_args',
                 mock.Mock(return_value=Namespace(daemon=False, pidfile=None,
                                                  config='./source/tests/config/pusher_config.py')))
@@ -174,8 +171,6 @@ class NotificationPusherTestCase(unittest.TestCase):
             assert not daemonize.called
             assert not create_pidfile.called
 
-
-
     @mock.patch('source.notification_pusher.parse_cmd_args',
                 mock.Mock(return_value=Namespace(daemon=True, pidfile=None,
                                                  config='./source/tests/config/pusher_config.py')))
@@ -189,7 +184,6 @@ class NotificationPusherTestCase(unittest.TestCase):
         with mock.patch('source.notification_pusher.daemonize', mock.Mock()) as daemonize:
             notification_pusher.main([])
             daemonize.assert_called_once()
-
 
     @mock.patch('source.notification_pusher.parse_cmd_args',
                 mock.Mock(return_value=Namespace(daemon=False, pidfile="SomePid",
@@ -205,7 +199,6 @@ class NotificationPusherTestCase(unittest.TestCase):
         with mock.patch('source.notification_pusher.create_pidfile', mock.Mock()) as create_pidfile:
             notification_pusher.main([])
             create_pidfile.assert_called_once_with("SomePid")
-
 
     @mock.patch('source.notification_pusher.parse_cmd_args',
                 mock.Mock(return_value=Namespace(daemon=False, pidfile=None,
@@ -223,7 +216,6 @@ class NotificationPusherTestCase(unittest.TestCase):
             notification_pusher.main([])
             notification_pusher.main_loop.assert_called_once_with(self.config)
 
-
     @mock.patch('source.notification_pusher.parse_cmd_args',
                 mock.Mock(return_value=Namespace(daemon=False, pidfile=None,
                                                  config='./source/tests/config/pusher_config.py')))
@@ -239,7 +231,6 @@ class NotificationPusherTestCase(unittest.TestCase):
         with mock.patch('source.notification_pusher.load_config_from_pyfile', mock.Mock(return_value=self.config)):
             notification_pusher.main([])
             assert notification_pusher.sleep.called
-
 
     def test_notification_worker_ack(self):
         """
@@ -282,6 +273,8 @@ class NotificationPusherTestCase(unittest.TestCase):
         signal = 100
         notification_pusher.stop_handler(signal)
         assert notification_pusher.exit_code is notification_pusher.SIGNAL_EXIT_CODE_OFFSET + signal
+
+
 pass
 
 

@@ -109,11 +109,19 @@ class UtilsTestCase(unittest.TestCase):
 
     @mock.patch('urllib2.urlopen', mock.Mock())
     def test_check_network_succesfull(self):
+        """
+        успешное соединение
+        :return:
+        """
         assert utils.check_network_status("someurl", 0)
 
 
     @mock.patch('urllib2.urlopen', mock.Mock(side_effect=urllib2.URLError("url exception")))
     def test_check_network_exception(self):
+        """
+        исключение при установке соединения
+        :return:
+        """
         self.assertFalse(utils.check_network_status("someurl", 10))
 
 
@@ -133,7 +141,6 @@ class UtilsTestCase(unittest.TestCase):
         процессы создаются
         :return:
         """
-        my_process = mock.MagicMock()
         call_count = 10
         with mock.patch('source.lib.utils.Process', mock.Mock()) as process:
             utils.spawn_workers(call_count, "target", args=[], parent_pid=10)
@@ -149,12 +156,19 @@ class UtilsTestCase(unittest.TestCase):
 
     def test_parse_cmd_args_with_params(self):
         """
-        нет параметров командной строки, нет обязательного параметра
+        сутствуют все аргументы командной строки
         :return:
         """
+        my_parser = mock.Mock()
+        daemon_param = '-d'
+        config_param = '-c'
+        pid_param = '-P'
         config_path = 'some path'
         pidfile = "pidfile"
-        self.assertEqual(utils.parse_cmd_args(['-c', config_path, '-d', '-P', pidfile]), Namespace(config=config_path, daemon=True, pidfile=pidfile))
+        args = [config_param, config_path, daemon_param, pid_param, pidfile]
+        with mock.patch('source.lib.utils.argparse.ArgumentParser', mock.Mock(return_value=my_parser)):
+            utils.parse_cmd_args(args)
+            my_parser.parse_args.assert_called_once_with(args=args)
 
 
 pass
