@@ -36,14 +36,6 @@ task_bury = 'bury'
 
 logger = logging.getLogger('pusher')
 
-def get_task_attr(task, action_name):
-    return getattr(task, action_name)()
-
-def post_request(url, data, *args, **kwargs):
-    return requests.post(
-        url, data=json.dumps(data), *args, **kwargs
-    )
-
 def notification_worker(task, task_queue, *args, **kwargs):
     """
     Обработчик задачи отправки уведомления.
@@ -63,10 +55,9 @@ def notification_worker(task, task_queue, *args, **kwargs):
 
         logger.info('Send data to callback url [{url}].'.format(url=url))
 
-        response = post_request(url, data)
-        # response = requests.post(
-        #     url, data=json.dumps(data), *args, **kwargs
-        # )
+        response = requests.post(
+            url, data=json.dumps(data), *args, **kwargs
+        )
         logger.info('Callback url [{url}] response status code={status_code}.'.format(
             url=url, status_code=response.status_code
         ))
@@ -95,8 +86,7 @@ def done_with_processed_tasks(task_queue):
             ))
 
             try:
-                # getattr(task, action_name)()
-                get_task_attr(task, action_name)
+                getattr(task, action_name)()
             except tarantool.DatabaseError as exc:
                 logger.exception(exc)
         except gevent_queue.Empty:
