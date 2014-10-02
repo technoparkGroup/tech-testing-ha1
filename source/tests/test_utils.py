@@ -49,7 +49,8 @@ class UtilsTestCase(unittest.TestCase):
         with mock.patch('source.lib.utils.execfile_wrapper', mock.Mock(return_value=variables)):
             conf = utils.load_config_from_pyfile(
                 os.path.realpath(os.path.expanduser("source/tests/config/test_correct_config.py")))
-            self.assertIsNotNone(getattr(conf, "QUEUE_HOST"), getattr(conf, "QUEUE_PORT"))
+            self.assertIsNotNone(getattr(conf, "QUEUE_HOST"), "attribute is none")
+            self.assertIsNotNone(getattr(conf, "QUEUE_PORT", "attribute is none"))
 
     def test_incorrect_config(self):
         """
@@ -157,13 +158,14 @@ class UtilsTestCase(unittest.TestCase):
             utils.spawn_workers(call_count, "target", args=[], parent_pid=10)
             assert process.call_count == call_count
 
-    # def test_parse_cmd_args_without_params(self):
-    #     """
-    #     нет параметров командной строки, нет обязательного параметра
-    #     :return:
-    #     """
-    #     with self.assertRaises(Exception):
-    #         utils.parse_cmd_args([])
+    def test_parse_cmd_args_without_params(self):
+        """
+        нет параметров командной строки, нет обязательного параметра
+        :return:
+        """
+        with mock.patch('sys.exit', mock.Mock()) as sys_exit:
+            utils.parse_cmd_args([])
+            assert mock.call(0) not in sys_exit.call_args_list
 
     def test_parse_cmd_args_with_params(self):
         """

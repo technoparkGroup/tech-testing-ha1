@@ -15,11 +15,6 @@ __author__ = 'maxim'
 
 class InitTestCase(unittest.TestCase):
 
-    def test_to_unicode_decoding(self):
-        val = 'unicode str'
-        to_unicode(val)
-
-
     def test_get_counters_without_counters(self):
         """
         в контенте нет ссылок на счетчики
@@ -137,17 +132,6 @@ class InitTestCase(unittest.TestCase):
         content = 'this is the end'
         with mock.patch('source.lib.make_pycurl_request', mock.Mock(return_value=(content, new_redirect_url))):
             self.assertEquals(get_url(url, timeout=10), (None, None, content))
-
-    # def test_get_url_another_redirect(self):
-    #     new_redirect_url = 'another redirect url'
-    #     content = 'this is the end'
-    #     prepare_url_return = 'prepare_url'
-    #     with mock.patch('source.lib.make_pycurl_request', mock.Mock(return_value=(content, new_redirect_url))),\
-    #         mock.patch('source.lib.prepare_url', mock.Mock(return_value=prepare_url_return)) as prepare_url, \
-    #         mock.patch('source.lib.urlsplit', mock.Mock()):
-    #             self.assertEquals(get_url(new_redirect_url, timeout=10), (prepare_url_return, REDIRECT_HTTP, content))
-    #             prepare_url.assert_called_once_with(new_redirect_url)
-    #             fix_market_url.assert_called_once_with(new_redirect_url)
 
     def test_get_url_market_url_http_redirect_type(self):
         with mock.patch('source.lib.fix_market_url', mock.Mock()) as fix_market_url:
